@@ -1,0 +1,74 @@
+# === Archivos de Secretos y Entorno ===
+# Ignora los archivos de entorno que contienen contraseñas y claves API
+# Esto es CRÍTICO para no exponer las credenciales de Oracle
+.env
+.envrc
+
+# === Entornos Virtuales de Python ===
+# Ignora las carpetas de entornos virtuales
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# === Archivos compilados de Python ===
+# Ignora el caché de bytecode y otros archivos compilados
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Translations
+*.mo
+
+# Configuración de IDEs y editores
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.spyderproject
+.spyproject
+
+# Archivos de SO
+.DS_Store
+Thumbs.db
