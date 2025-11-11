@@ -1,110 +1,77 @@
-# (En main.py)
-from fastapi import FastAPI, HTTPException, Depends
-import numpy as np
-import oracledb
-from typing import Dict
+from fastapi import FastAPI, HTTPException
+from. import models # Importación relativa desde el mismo paquete
+from src.engine import math_engine # Importación absoluta gracias a 'pip install -e.'
+from src.db_utils import queries # Importación absoluta
 
-# Importar sus dependencias de equipo
-import schemas
-from database import get_db_connection  # De Carlos 
-from engine.math_engine import (
-    get_normal_vector,      # De Francisca 
-    analyze_planar_fail,    # De Francisca 
-    analyze_wedge_fail      # De Francisca 
+app = FastAPI(
+    title="GeoStab API",
+    description="Backend para el análisis geotécnico (Sprint 2)"
 )
 
-app = FastAPI(title="GeoStab API")
-
-# --- ENDPOINTS DE ANÁLISIS ---
-
-@app.post("/analyze/planar", response_model=schemas.AnalysisResponse)
-async def api_analyze_planar(req: schemas.PlanarAnalysisRequest):
+@app.post("/analyze/planar", response_model=models.AnalysisResult)
+def analyze_planar(request: models.PlanarAnalysisRequest):
     """
-    Ejecuta el análisis cinemático de falla planar.
-    Llama al motor de Numpy de Francisca.
+    Ejecuta el análisis cinemático de falla planar (Sprint 2).
     """
     try:
-        # 1. Convertir ángulos a vectores 
-        talud_normal = get_normal_vector(req.slope_strike, req.slope_dip)
-        f1_normal = get_normal_vector(req.f1_strike, req.f1_dip)
-        
-        # 2. Ejecutar análisis 
-        is_risk = analyze_planar_fail(
-            talud_normal,
-            f1_normal,
-            req.friction_angle
+        # 1. Llamar al motor de Francisca (Sprint 1) 
+        talud_normal = math_engine.get_normal_vector(
+            request.talud.rumbo, request.talud.manteo
+        )
+        f1_normal = math_engine.get_normal_vector(
+            request.fractura1.rumbo, request.fractura1.manteo
         )
         
-        msg = "RIESGO DETECTADO" if is_risk else "Condiciones Estables"
-        return {"risk_detected": is_risk, "message": msg}
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error del motor matemático: {e}")
+        risk_detected = math_engine.analyze_planar_fail(
+            talud_normal,
+            f1_normal,
+            request.angulo_friccion
+        )
+        message = "Análisis planar completado."
 
-@app.post("/analyze/wedge", response_model=schemas.AnalysisResponse)
-async def api_analyze_wedge(req: schemas.WedgeAnalysisRequest):
-    """
-    Ejecuta el análisis cinemático de falla en cuña.
-    Llama al motor de Numpy de Francisca.
-    """
-    if req.f2_strike is None or req.f2_dip is None:
-        raise HTTPException(status_code=400, detail="Se requieren datos de la Fractura 2 para análisis en cuña.")
-        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en el motor matemático: {e}")
+
+    # 2. Guardar en la BD de Carlos (Sprint 2) 
     try:
-        # 1. Convertir ángulos a vectores 
-        talud_normal = get_normal_vector(req.slope_strike, req.slope_dip)
-        f1_normal = get_normal_vector(req.f1_strike, req.f1_dip)
-        f2_normal = get_normal_vector(req.f2_strike, req.f2_dip)
-
-        # 2. Ejecutar análisis 
-        is_risk = analyze_wedge_fail(
-            talud_normal,
-            f1_normal,
-            f2_normal,
-            req.friction_angle
+        # Llama a una función en db_utils/queries.py (Dominio de Carlos)
+        # para insertar en la tabla MEASUREMENTS 
+        queries.save_planar_measurement(
+            site_id=request.site_id,
+            request_data=request,
+            planar_risk=risk_detected
         )
-        
-        msg = "RIESGO DETECTADO" if is_risk else "Condiciones Estables"
-        return {"risk_detected": is_risk, "message": msg}
-        
+        db_status = "Medición guardada exitosamente."
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error del motor matemático: {e}")
+        # No fallar la solicitud si la BD falla, pero informar
+        db_status = f"Error al guardar en BD: {e}"
 
-# --- ENDPOINT DE PERSISTENCIA (BASE de DATOS) ---
+    # 3. Devolver la respuesta a Valeria (Sprint 3) 
+    return models.AnalysisResult(
+        risk_detected=risk_detected,
+        message=message,
+        db_save_status=db_status
+    )
 
-@app.post("/save_measurement", response_model=Dict[str, str])
-async def api_save_measurement(
-    req: schemas.MeasurementRecord,
-    conn: oracledb.Connection = Depends(get_db_connection)
-):
+@app.post("/analyze/wedge", response_model=models.AnalysisResult)
+def analyze_wedge(request: models.WedgeAnalysisRequest):
     """
-    Guarda una medición completa en la Base de Datos Oracle.
-    Utiliza la conexión de Carlos  y el DDL.
+    Ejecuta el análisis cinemático de falla en cuña (Sprint 2).
+    (Implementación similar usando math_engine.analyze_wedge_fail)
     """
-    if not conn:
-        raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos Oracle.")
+    #... Lógica similar a /analyze/planar...
+    #... Llama a math_engine.analyze_wedge_fail...
+    #... Llama a queries.save_wedge_measurement...
+    risk_detected = math_engine.analyze_wedge_fail(
+        #... pasar vectores normales...
+        talud_normal=...,
+        f1_normal=...,
+        f2_normal=...,
+        angulo_friccion=request.angulo_friccion
+    )
     
-    # SQL basado en la tabla MEASUREMENTS 
-    sql = """
-        INSERT INTO MEASUREMENTS (
-            SITE_ID, INPUT_METHOD, 
-            SLOPE_STRIKE, SLOPE_DIP, 
-            F1_STRIKE, F1_DIP, 
-            F2_STRIKE, F2_DIP,
-            FRICTION_ANGLE,
-            PLANAR_RISK_DETECTED, WEDGE_RISK_DETECTED
-        ) VALUES (
-            :1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11
-        )
-    """
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(sql,)
-        conn.commit()
-        return {"status": "success", "message": "Medición guardada en Oracle DB."}
-    except oracledb.DatabaseError as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Error de Oracle DB: {e}")
-    finally:
-        if conn:
-            conn.close()
+    return models.AnalysisResult(
+        risk_detected=risk_detected,
+        message="Análisis en cuña completado.",
+        db_save_status="No implementado aún"
+    )

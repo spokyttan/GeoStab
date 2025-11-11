@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  
+  # Servicio 1: Backend API (Dominio de Nattan)
+  api:
+    build:
+      context:.
+      dockerfile: Dockerfile.api
+    # El comando 'command:' hace referencia a nuestro archivo refactorizado
+    command: "uvicorn src.geostab_api.main:app --host 0.0.0.0 --port 8000"
+    volumes:
+      -./src:/app/src # Montar código fuente para desarrollo
+    ports:
+      - "8000:8000" # Exponer puerto de la API
+    environment:
+      # Credenciales de Carlos 
+      - ORACLE_USER=geostab_user
+      - ORACLE_PASS=${ORACLE_PASS_SECRET} # Cargar desde un archivo.env
+      - ORACLE_DSN=${ORACLE_DSN_STRING} # Cargar desde un archivo.env
+    
+  # Servicio 2: Frontend UI (Dominio de Valeria)
+  ui:
+    build:
+      context:.
+      dockerfile: Dockerfile.ui
+    # El comando 'command:' hace referencia a nuestro archivo refactorizado
+    command: "streamlit run streamlit_app.py --server.port=8501"
+    volumes:
+      -./streamlit_app.py:/app/streamlit_app.py # Montar app de Streamlit
+    ports:
+      - "8501:8501" # Exponer puerto de Streamlit
+    environment:
+      # CRÍTICO: La UI necesita saber dónde está la API
+      # 'api' es el nombre del servicio de Nattan (Docker DNS)
+      - FASTAPI_URL=http://api:8000 
+    depends_on:
+      - api # Asegurarse de que la API se inicie primero
+
+# (Faltaría un servicio de Nginx para el proxy inverso y HTTPS )
