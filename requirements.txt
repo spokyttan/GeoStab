@@ -1,6 +1,6 @@
 fastapi[standard]#-->listo
 streamlit#-->listo
-pip install mysql-connector-python #-->listo
+mysql-connector-python #-->listo
 streamlit-js-eval #-->listo
 numpy #-->listo
 requests#-->listo
