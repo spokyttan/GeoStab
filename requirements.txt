@@ -1,0 +1,7 @@
+fastapi[standard]
+streamlit
+streamlit-js-eval
+numpy
+oracledb
+requests
+pytest

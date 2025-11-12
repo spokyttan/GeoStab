@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
-from src.engine.math_engine import get_normal_vector, analyze_planar_fail # Importación limpia
-
+from engine.math_engine import get_normal_vector, analyze_planar_fail # Importación limpia
 #
 # Pruebas para get_normal_vector (Sprint 1) 
 #

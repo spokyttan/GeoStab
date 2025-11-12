@@ -1,6 +1,5 @@
 from fastapi.testclient import TestClient
-from src.geostab_api.main import app # Importa la app de Nattan
-
+from geostab_api.main import app # Importa la app de Nattan
 client = TestClient(app)
 
 def test_analyze_planar_endpoint():

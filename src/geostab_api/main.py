@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from. import models # Importación relativa desde el mismo paquete
-from src.engine import math_engine # Importación absoluta gracias a 'pip install -e.'
-from src.db_utils import queries # Importación absoluta
+from engine import math_engine
+from db_utils import queries
 
 app = FastAPI(
     title="GeoStab API",

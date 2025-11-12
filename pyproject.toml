@@ -5,4 +5,6 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "geostab"
 version = "0.1.0"
-packages = ["src"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
