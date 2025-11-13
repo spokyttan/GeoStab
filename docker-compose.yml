@@ -1,6 +1,27 @@
 version: '3.8'
 
+volumes:
+  certbot_conf:
+  certbot_www:
+
 services:
+  
+  # Servicio 3: Base de Datos MySQL (Dominio de Carlos)
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD_SECRET} # Cargar desde .env
+      MYSQL_DATABASE: geostab_db
+      MYSQL_USER: geostab_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD_SECRET} # Cargar desde .env
+    ports:
+      - "3306:3306" # Exponer puerto de MySQL
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   
   # Servicio 1: Backend API (Dominio de Nattan)
   api:
@@ -11,13 +32,15 @@ services:
     command: "uvicorn src.geostab_api.main:app --host 0.0.0.0 --port 8000"
     volumes:
       -./src:/app/src # Montar código fuente para desarrollo
-    ports:
-      - "8000:8000" # Exponer puerto de la API
     environment:
-      # Credenciales de Carlos 
-      - ORACLE_USER=geostab_user
-      - ORACLE_PASS=${ORACLE_PASS_SECRET} # Cargar desde un archivo.env
-      - ORACLE_DSN=${ORACLE_DSN_STRING} # Cargar desde un archivo.env
+      # Credenciales de Carlos (Ahora para MySQL)
+      - MYSQL_HOST=db # El nombre del servicio de la BD
+      - MYSQL_USER=geostab_user
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD_SECRET} # Cargar desde .env
+      - MYSQL_DATABASE=geostab_db
+    depends_on:
+      db:
+        condition: service_healthy # La API esperará a que la BD esté saludable
     
   # Servicio 2: Frontend UI (Dominio de Valeria)
   ui:
@@ -28,8 +51,6 @@ services:
     command: "streamlit run streamlit_app.py --server.port=8501"
     volumes:
       -./streamlit_app.py:/app/streamlit_app.py # Montar app de Streamlit
-    ports:
-      - "8501:8501" # Exponer puerto de Streamlit
     environment:
       # CRÍTICO: La UI necesita saber dónde está la API
       # 'api' es el nombre del servicio de Nattan (Docker DNS)
@@ -37,4 +58,30 @@ services:
     depends_on:
       - api # Asegurarse de que la API se inicie primero
 
-# (Faltaría un servicio de Nginx para el proxy inverso y HTTPS )
+# Servicio 4: Proxy Inverso (Dominio de Nattan - Despliegue)
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    restart: always
+    ports:
+      - "80:80" # Exponer el puerto HTTP estándar al mundo exterior
+      - "443:443" # Exponer el puerto HTTPS
+    volumes:
+      - certbot_conf:/etc/letsencrypt # Volumen para los certificados
+      - certbot_www:/var/www/certbot # Volumen para la validación
+    depends_on:
+      - api
+      - ui
+
+# Servicio 5: Certbot para certificados SSL (Dominio de Nattan - Despliegue)
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    # El comando se ejecuta al levantar los servicios. No se queda corriendo.
+    command: >-
+      certonly --webroot --webroot-path=/var/www/certbot
+      --nattancm@gmail.com --agree-tos --no-eff-email
+      -d geostab.duckdns.org
