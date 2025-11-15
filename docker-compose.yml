@@ -3,6 +3,7 @@ version: '3.8'
 volumes:
   certbot_conf:
   certbot_www:
+  geostab_db_data: # Volumen nombrado para los datos de MySQL
 
 services:
   
@@ -15,13 +16,13 @@ services:
       MYSQL_DATABASE: geostab_db
       MYSQL_USER: geostab_user
       MYSQL_PASSWORD: ${MYSQL_PASSWORD_SECRET} # Cargar desde .env
-    ports:
-      - "3306:3306" # Exponer puerto de MySQL
     healthcheck:
       test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
+    volumes:
+      - geostab_db_data:/var/lib/mysql # Montar el volumen nombrado
   
   # Servicio 1: Backend API (Dominio de Nattan)
   api:
@@ -30,8 +31,6 @@ services:
       dockerfile: Dockerfile.api
     # El comando 'command:' hace referencia a nuestro archivo refactorizado
     command: "uvicorn src.geostab_api.main:app --host 0.0.0.0 --port 8000"
-    volumes:
-      - ./src:/app/src
     environment:
       # Credenciales de Carlos (Ahora para MySQL)
       MYSQL_HOST: db # El nombre del servicio de la BD
@@ -49,8 +48,6 @@ services:
       dockerfile: Dockerfile.ui
     # El comando 'command:' hace referencia a nuestro archivo refactorizado
     command: "streamlit run streamlit_app.py --server.port=8501"
-    volumes:
-      - ./streamlit_app.py:/app/streamlit_app.py
     environment:
       # CRÍTICO: La UI necesita saber dónde está la API
       # 'api' es el nombre del servicio de Nattan (Docker DNS)
@@ -80,8 +77,6 @@ services:
     volumes:
       - certbot_conf:/etc/letsencrypt
       - certbot_www:/var/www/certbot
-    # El comando se ejecuta al levantar los servicios. No se queda corriendo.
-    command: >-
-      certonly --webroot --webroot-path=/var/www/certbot
-      --email nattancm@gmail.com --agree-tos --no-eff-email
-      -d geostab.duckdns.org
+    # El comando para la renovación se ejecutará periódicamente.
+    # La obtención inicial se hace manualmente con 'docker-compose run'.
+    command: "renew --webroot -w /var/www/certbot"
