@@ -26,18 +26,18 @@ services:
   # Servicio 1: Backend API (Dominio de Nattan)
   api:
     build:
-      context:.
+      context: .
       dockerfile: Dockerfile.api
     # El comando 'command:' hace referencia a nuestro archivo refactorizado
     command: "uvicorn src.geostab_api.main:app --host 0.0.0.0 --port 8000"
     volumes:
-      -./src:/app/src # Montar código fuente para desarrollo
+      - ./src:/app/src
     environment:
       # Credenciales de Carlos (Ahora para MySQL)
-      - MYSQL_HOST=db # El nombre del servicio de la BD
-      - MYSQL_USER=geostab_user
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD_SECRET} # Cargar desde .env
-      - MYSQL_DATABASE=geostab_db
+      MYSQL_HOST: db # El nombre del servicio de la BD
+      MYSQL_USER: geostab_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD_SECRET} # Cargar desde .env
+      MYSQL_DATABASE: geostab_db
     depends_on:
       db:
         condition: service_healthy # La API esperará a que la BD esté saludable
@@ -45,16 +45,16 @@ services:
   # Servicio 2: Frontend UI (Dominio de Valeria)
   ui:
     build:
-      context:.
+      context: .
       dockerfile: Dockerfile.ui
     # El comando 'command:' hace referencia a nuestro archivo refactorizado
     command: "streamlit run streamlit_app.py --server.port=8501"
     volumes:
-      -./streamlit_app.py:/app/streamlit_app.py # Montar app de Streamlit
+      - ./streamlit_app.py:/app/streamlit_app.py
     environment:
       # CRÍTICO: La UI necesita saber dónde está la API
       # 'api' es el nombre del servicio de Nattan (Docker DNS)
-      - FASTAPI_URL=http://api:8000 
+      FASTAPI_URL: http://api:8000 
     depends_on:
       - api # Asegurarse de que la API se inicie primero
 
@@ -83,5 +83,5 @@ services:
     # El comando se ejecuta al levantar los servicios. No se queda corriendo.
     command: >-
       certonly --webroot --webroot-path=/var/www/certbot
-      --nattancm@gmail.com --agree-tos --no-eff-email
+      --email nattancm@gmail.com --agree-tos --no-eff-email
       -d geostab.duckdns.org

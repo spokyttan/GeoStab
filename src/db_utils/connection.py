@@ -1,13 +1,19 @@
 import mysql.connector
+import os # Importar el módulo 'os' para acceder a las variables de entorno
+from dotenv import load_dotenv # Importar load_dotenv
 
-# Configuración (la misma que antes)
+# Cargar variables de entorno desde el archivo .env
+load_dotenv()
+# Cargar la configuración desde variables de entorno para mayor seguridad y flexibilidad.
+# Estos valores se pueden definir en un archivo .env o directamente en el sistema.
 config = {
-    'user': 'capitan',
-    'password': 'C4pitan90@',
-    'host': 'db1.inacapacademicdatacenter.com',
-    'database': 'GeoStab',
-    'port': 13043
+    'user': os.getenv('DB_USER', 'capitan'),
+    'password': os.getenv('DB_PASSWORD'), # El password no debería tener un valor por defecto
+    'host': os.getenv('DB_HOST', 'db1.inacapacademicdatacenter.com'),
+    'database': os.getenv('DB_NAME', 'GeoStab'),
+    'port': int(os.getenv('DB_PORT', 13043)) # Convertir el puerto a entero
 }
+
 
 # --- Comandos SQL para ELIMINAR (DROP) ---
 

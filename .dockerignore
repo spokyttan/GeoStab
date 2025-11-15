@@ -1,0 +1,23 @@
+# /home/nattancm/Proyectos secretos/GeoStab/.dockerignore
+
+# Ignorar el entorno virtual de Python
+venv/
+.venv/
+
+# Ignorar el caché de Python
+__pycache__/
+*.pyc
+
+# Ignorar archivos de configuración de IDEs
+.vscode/
+.idea/
+
+# Ignorar el repositorio de Git
+.git/
+.gitignore
+
+# Ignorar el archivo de secretos
+.env
+
+# Ignorar el propio .dockerignore
+.dockerignore

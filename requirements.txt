@@ -1,7 +1,7 @@
-fastapi[standard]#-->listo
-streamlit#-->listo
-mysql-connector-python #-->listo
-streamlit-js-eval #-->listo
-numpy #-->listo
-requests#-->listo
+fastapi[standard]
+streamlit
+mysql-connector-python
+streamlit-js-eval
+numpy
+requests
 pytest

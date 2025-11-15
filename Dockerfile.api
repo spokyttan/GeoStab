@@ -1,0 +1,22 @@
+# /home/nattancm/Proyectos secretos/GeoStab/Dockerfile.api
+
+# 1. Usa una imagen oficial de Python como base. 'slim' es una versión ligera.
+FROM python:3.9-slim
+
+# 2. Establece el directorio de trabajo dentro del contenedor.
+WORKDIR /app
+
+# 3. Copia solo el archivo de requerimientos primero.
+#    Esto aprovecha el sistema de caché de Docker. Si requirements.txt no cambia,
+#    Docker no volverá a instalar las dependencias, haciendo las construcciones futuras más rápidas.
+COPY requirements.txt .
+
+# 4. Instala las dependencias de Python.
+#    --no-cache-dir reduce el tamaño final de la imagen.
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 5. Copia el resto del código fuente de la aplicación al contenedor.
+COPY ./src /app/src
+
+# El comando para ejecutar la API ya está definido en tu docker-compose.yml,
+# por lo que no es necesario un CMD o ENTRYPOINT aquí.
