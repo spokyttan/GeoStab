@@ -3,26 +3,9 @@ version: '3.8'
 volumes:
   certbot_conf:
   certbot_www:
-  geostab_db_data: # Volumen nombrado para los datos de MySQL
 
 services:
-  
-  # Servicio 3: Base de Datos MySQL (Dominio de Carlos)
-  db:
-    image: mysql:8.0
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD_SECRET} # Cargar desde .env
-      MYSQL_DATABASE: geostab_db
-      MYSQL_USER: geostab_user
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD_SECRET} # Cargar desde .env
-    healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - geostab_db_data:/var/lib/mysql # Montar el volumen nombrado
+  # --- El servicio 'db' y su volumen asociado han sido eliminados ---
   
   # Servicio 1: Backend API (Dominio de Nattan)
   api:
@@ -30,16 +13,16 @@ services:
       context: .
       dockerfile: Dockerfile.api
     # El comando 'command:' hace referencia a nuestro archivo refactorizado
+    restart: always
     command: "uvicorn src.geostab_api.main:app --host 0.0.0.0 --port 8000"
     environment:
-      # Credenciales de Carlos (Ahora para MySQL)
-      MYSQL_HOST: db # El nombre del servicio de la BD
+      # --- Credenciales para la base de datos externa de INACAP ---
+      MYSQL_HOST: ${INACAP_DB_HOST} # IP o dominio del servidor de BD de INACAP
       MYSQL_USER: geostab_user
       MYSQL_PASSWORD: ${MYSQL_PASSWORD_SECRET} # Cargar desde .env
       MYSQL_DATABASE: geostab_db
     depends_on:
-      db:
-        condition: service_healthy # La API esperará a que la BD esté saludable
+      - api # Asegurarse de que la API se inicie primero
     
   # Servicio 2: Frontend UI (Dominio de Valeria)
   ui:
@@ -47,13 +30,13 @@ services:
       context: .
       dockerfile: Dockerfile.ui
     # El comando 'command:' hace referencia a nuestro archivo refactorizado
+    restart: always
     command: "streamlit run streamlit_app.py --server.port=8501"
     environment:
       # CRÍTICO: La UI necesita saber dónde está la API
       # 'api' es el nombre del servicio de Nattan (Docker DNS)
       FASTAPI_URL: http://api:8000 
     depends_on:
-      - api # Asegurarse de que la API se inicie primero
 
 # Servicio 4: Proxy Inverso (Dominio de Nattan - Despliegue)
   nginx:
