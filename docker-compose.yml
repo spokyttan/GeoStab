@@ -1,0 +1,73 @@
+version: '3.8'
+
+volumes:
+  certbot_conf:
+  certbot_www:
+
+services:
+  # --- El servicio 'db' y su volumen asociado han sido eliminados ---
+  
+  # Servicio 1: Backend API (Dominio de Nattan)
+  api:
+    # RECOMENDACIÓN: Usar una imagen pre-construida desde un registro como Docker Hub o GHCR.
+    # Reemplaza 'tu-registro/geostab-api:latest' con el nombre real de tu imagen.
+    image: ghcr.io/spokyttan/geostab-api:latest
+    restart: always
+    # RECOMENDACIÓN: Usar Gunicorn para gestionar workers de Uvicorn en producción.
+    command: "gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.geostab_api.main:app --bind 0.0.0.0:8000"
+    environment:
+      # --- Credenciales para la base de datos externa de INACAP ---
+      MYSQL_HOST: ${INACAP_DB_HOST} # IP o dominio del servidor de BD de INACAP
+      MYSQL_USER: geostab_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD_SECRET} # Cargar desde .env
+      MYSQL_DATABASE: geostab_db
+      # SOLUCIÓN: Añade el directorio 'src' al PYTHONPATH para que Python encuentre tus módulos.
+      PYTHONPATH: /app/src
+    ports:
+      # Expone el puerto 8000 del contenedor al puerto 8000 de tu máquina local
+      - "8000:8000"
+    
+  # Servicio 2: Frontend UI (Dominio de Valeria)
+  ui:
+    # RECOMENDACIÓN: Usar una imagen pre-construida desde un registro.
+    # Reemplaza 'tu-registro/geostab-ui:latest' con el nombre real de tu imagen.
+    image: ghcr.io/spokyttan/geostab-ui:latest
+    restart: always
+    command: "streamlit run streamlit_app.py --server.port=8501"
+    environment:
+      # CRÍTICO: La UI necesita saber dónde está la API
+      # 'api' es el nombre del servicio de Nattan (Docker DNS)
+      FASTAPI_URL: http://api:8000 
+    depends_on:
+      - api
+    ports:
+      # Expone el puerto 8501 del contenedor al puerto 8501 de tu máquina local
+      - "8501:8501"
+
+# Servicio 4: Proxy Inverso (Dominio de Nattan - Despliegue)
+#  nginx:
+#    # RECOMENDACIÓN: Usar una imagen pre-construida con tu configuración de Nginx.
+#    # Reemplaza 'tu-registro/geostab-nginx:latest' con el nombre real de tu imagen.
+#    image: ghcr.io/spokyttan/geostab-nginx:latest
+#    restart: always
+#    ports:
+#      - "80:80" # Exponer el puerto HTTP estándar al mundo exterior
+#      - "443:443" # Exponer el puerto HTTPS
+#    volumes:
+#      - certbot_conf:/etc/letsencrypt # Volumen para los certificados
+#      - certbot_www:/var/www/certbot # Volumen para la validación
+#    depends_on:
+#      - api
+#      - ui
+#
+# # Servicio 5: Certbot para certificados SSL (Dominio de Nattan - Despliegue)
+#  certbot:
+#    image: certbot/certbot
+#    volumes:
+#      - certbot_conf:/etc/letsencrypt
+#      - certbot_www:/var/www/certbot
+#    # El comando para la renovación se ejecutará periódicamente.
+#    # La obtención inicial se hace manualmente con 'docker-compose run'.
+#    command: "renew --webroot -w /var/www/certbot"
+#    depends_on:
+#      - nginx
