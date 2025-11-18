@@ -23,6 +23,9 @@ services:
       MYSQL_DATABASE: GeoStab
       # SOLUCIÓN: Añade el directorio 'src' al PYTHONPATH para que Python encuentre tus módulos.
       PYTHONPATH: /app/src
+    ports:
+      # Expone el puerto 8000 del contenedor al puerto 8000 de tu máquina local
+      - "8000:8000"
     
   # Servicio 2: Frontend UI (Dominio de Valeria)
   ui:
@@ -37,31 +40,34 @@ services:
       FASTAPI_URL: http://api:8000 
     depends_on:
       - api
+    ports:
+      # Expone el puerto 8501 del contenedor al puerto 8501 de tu máquina local
+      - "8501:8501"
 
 # Servicio 4: Proxy Inverso (Dominio de Nattan - Despliegue)
-  nginx:
-    # RECOMENDACIÓN: Usar una imagen pre-construida con tu configuración de Nginx.
-    # Reemplaza 'tu-registro/geostab-nginx:latest' con el nombre real de tu imagen.
-    image: ghcr.io/spokyttan/geostab-nginx:latest
-    restart: always
-    ports:
-      - "80:80" # Exponer el puerto HTTP estándar al mundo exterior
-      - "443:443" # Exponer el puerto HTTPS
-    volumes:
-      - certbot_conf:/etc/letsencrypt # Volumen para los certificados
-      - certbot_www:/var/www/certbot # Volumen para la validación
-    depends_on:
-      - api
-      - ui
-
-# Servicio 5: Certbot para certificados SSL (Dominio de Nattan - Despliegue)
-  certbot:
-    image: certbot/certbot
-    volumes:
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-    # El comando para la renovación se ejecutará periódicamente.
-    # La obtención inicial se hace manualmente con 'docker-compose run'.
-    command: "renew --webroot -w /var/www/certbot"
-    depends_on:
-      - nginx
+#  nginx:
+#    # RECOMENDACIÓN: Usar una imagen pre-construida con tu configuración de Nginx.
+#    # Reemplaza 'tu-registro/geostab-nginx:latest' con el nombre real de tu imagen.
+#    image: ghcr.io/spokyttan/geostab-nginx:latest
+#    restart: always
+#    ports:
+#      - "80:80" # Exponer el puerto HTTP estándar al mundo exterior
+#      - "443:443" # Exponer el puerto HTTPS
+#    volumes:
+#      - certbot_conf:/etc/letsencrypt # Volumen para los certificados
+#      - certbot_www:/var/www/certbot # Volumen para la validación
+#    depends_on:
+#      - api
+#      - ui
+#
+# # Servicio 5: Certbot para certificados SSL (Dominio de Nattan - Despliegue)
+#  certbot:
+#    image: certbot/certbot
+#    volumes:
+#      - certbot_conf:/etc/letsencrypt
+#      - certbot_www:/var/www/certbot
+#    # El comando para la renovación se ejecutará periódicamente.
+#    # La obtención inicial se hace manualmente con 'docker-compose run'.
+#    command: "renew --webroot -w /var/www/certbot"
+#    depends_on:
+#      - nginx
