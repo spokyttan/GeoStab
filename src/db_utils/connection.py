@@ -1,61 +1,56 @@
 import mysql.connector
-import os # Importar el módulo 'os' para acceder a las variables de entorno
-from dotenv import load_dotenv # Importar load_dotenv
+import os
+from contextlib import contextmanager
 
-# Cargar variables de entorno desde el archivo .env
-load_dotenv()
-# Cargar la configuración desde variables de entorno para mayor seguridad y flexibilidad.
-# Estos valores se pueden definir en un archivo .env o directamente en el sistema.
-config = {
-    'user': os.getenv('DB_USER', 'capitan'),
-    'password': os.getenv('DB_PASSWORD'), # El password no debería tener un valor por defecto
-    'host': os.getenv('DB_HOST', 'db1.inacapacademicdatacenter.com'),
-    'database': os.getenv('DB_NAME', 'GeoStab'),
-    'port': int(os.getenv('DB_PORT', 13043)) # Convertir el puerto a entero
-}
+@contextmanager
+def get_db_connection():
+    """
+    Proporciona una conexión a la base de datos que se cierra automáticamente.
+    Lee la configuración desde las variables de entorno.
+    """
+    conn = None
+    try:
+        config = {
+            'user': os.environ.get('MYSQL_USER'),
+            'password': os.environ.get('MYSQL_PASSWORD'),
+            'host': os.environ.get('MYSQL_HOST'),
+            'database': os.environ.get('MYSQL_DATABASE'),
+            'port': 13043 # El puerto puede ser hardcodeado si no cambia, o pasarlo por variable de entorno.
+        }
+        conn = mysql.connector.connect(**config)
+        print("Conexión a la base de datos establecida.")
+        yield conn
+    except mysql.connector.Error as err:
+        print(f"Error al conectar a MySQL: {err}")
+        raise
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+            print("Conexión a la base de datos cerrada.")
 
 
-# --- Comandos SQL para ELIMINAR (DROP) ---
+# Bloque para pruebas locales. Este código solo se ejecuta cuando corres 'python src/db_utils/connection.py'
+if __name__ == '__main__':
+    from dotenv import load_dotenv
+    import os
 
-# Usamos "IF EXISTS" para que no dé error si la tabla ya no existe.
+    # Carga las variables desde el archivo .env en la raíz del proyecto
+    # Asume que el .env está dos niveles arriba de este archivo (src/db_utils -> raíz)
+    dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
+    load_dotenv(dotenv_path=dotenv_path)
 
-# 1. Primero borramos MEASUREMENTS porque depende de SITES
-sql_drop_measurements = "DROP TABLE IF EXISTS MEASUREMENTS;"
+    # Renombra las variables del .env para que coincidan con las que espera el script
+    os.environ['MYSQL_HOST'] = os.environ.get('INACAP_DB_HOST')
+    os.environ['MYSQL_PASSWORD'] = os.environ.get('MYSQL_PASSWORD_SECRET')
+    os.environ['MYSQL_USER'] = 'geostab_user'
+    os.environ['MYSQL_DATABASE'] = 'geostab_db'
 
-# 2. Luego borramos SITES
-sql_drop_sites = "DROP TABLE IF EXISTS SITES;"
-
-try:
-    # Usamos 'with' para manejar la conexión y el cursor
-    with mysql.connector.connect(**config) as conn:
-        print("Conexión exitosa a MySQL")
-        cursor = conn.cursor()
-        
-        print("Iniciando eliminación...")
-        
-        # --- Ejecución en orden inverso a la creación ---
-
-        # 1. Eliminar MEASUREMENTS (Debe ser primero por la FK)
-        try:
-            print("Eliminando tabla MEASUREMENTS...")
-            cursor.execute(sql_drop_measurements)
-            print("-> Tabla MEASUREMENTS eliminada.")
-        except mysql.connector.Error as err:
-            print(f"Error/Advertencia al eliminar MEASUREMENTS: {err}")
-
-        # 2. Eliminar SITES
-        try:
-            print("Eliminando tabla SITES...")
-            cursor.execute(sql_drop_sites)
-            print("-> Tabla SITES eliminada.")
-        except mysql.connector.Error as err:
-            print(f"Error/Advertencia al eliminar SITES: {err}")
-
-        # Confirmamos los cambios en la base de datos
-        conn.commit()
-        print("\n¡Tablas eliminadas correctamente!")
-
-except mysql.connector.Error as err:
-    print(f"Error crítico de conexión: {err}")
-
-print("Conexión cerrada")
+    print("Iniciando prueba de conexión...")
+    try:
+        with get_db_connection() as connection:
+            cursor = connection.cursor()
+            cursor.execute("SELECT VERSION();")
+            db_version = cursor.fetchone()
+            print(f"Prueba exitosa. Versión de la base de datos: {db_version[0]}")
+    except Exception as e:
+        print(f"La prueba de conexión falló: {e}")
