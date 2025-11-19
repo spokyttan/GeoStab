@@ -24,8 +24,7 @@ services:
       # SOLUCIÓN: Añade el directorio 'src' al PYTHONPATH para que Python encuentre tus módulos.
       PYTHONPATH: /app/src
     ports:
-      # Expone el puerto 8000 del contenedor al puerto 8000 de tu máquina local
-      - "8000:8000"
+      - "8000:8000" # Esto puede ser cambiado a 'expose' en producción final
     
   # Servicio 2: Frontend UI (Dominio de Valeria)
   ui:
@@ -41,33 +40,31 @@ services:
     depends_on:
       - api
     ports:
-      # Expone el puerto 8501 del contenedor al puerto 8501 de tu máquina local
-      - "8501:8501"
+      - "8501:8501" # Esto puede ser cambiado a 'expose' en producción final
 
 # Servicio 4: Proxy Inverso (Dominio de Nattan - Despliegue)
-#  nginx:
-#    # RECOMENDACIÓN: Usar una imagen pre-construida con tu configuración de Nginx.
-#    # Reemplaza 'tu-registro/geostab-nginx:latest' con el nombre real de tu imagen.
-#    image: ghcr.io/spokyttan/geostab-nginx:latest
-#    restart: always
-#    ports:
-#      - "80:80" # Exponer el puerto HTTP estándar al mundo exterior
-#      - "443:443" # Exponer el puerto HTTPS
-#    volumes:
-#      - certbot_conf:/etc/letsencrypt # Volumen para los certificados
-#      - certbot_www:/var/www/certbot # Volumen para la validación
-#    depends_on:
-#      - api
-#      - ui
-#
-# # Servicio 5: Certbot para certificados SSL (Dominio de Nattan - Despliegue)
-#  certbot:
-#    image: certbot/certbot
-#    volumes:
-#      - certbot_conf:/etc/letsencrypt
-#      - certbot_www:/var/www/certbot
-#    # El comando para la renovación se ejecutará periódicamente.
-#    # La obtención inicial se hace manualmente con 'docker-compose run'.
-#    command: "renew --webroot -w /var/www/certbot"
-#    depends_on:
-#      - nginx
+  nginx:
+    # Usar la imagen oficial de Nginx para la Fase 1
+    image: nginx:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/http_challenge.conf:/etc/nginx/conf.d/default.conf # Montar la configuración HTTP-Only
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    depends_on:
+      - api
+      - ui
+
+# Servicio 5: Certbot para certificados SSL (Dominio de Nattan - Despliegue)
+  certbot:
+    image: certbot/certbot
+    env_file: .env
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    command: "renew --webroot -w /var/www/certbot"
+    depends_on:
+      - nginx

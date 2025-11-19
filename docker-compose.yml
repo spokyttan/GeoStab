@@ -1,8 +1,4 @@
-version: '3.8'
-
-volumes:
-  certbot_conf:
-  certbot_www:
+version: '3.7'
 
 services:
   # --- El servicio 'db' y su volumen asociado han sido eliminados ---
@@ -23,8 +19,7 @@ services:
       MYSQL_DATABASE: GeoStab
       # SOLUCIÓN: Añade el directorio 'src' al PYTHONPATH para que Python encuentre tus módulos.
       PYTHONPATH: /app/src
-    
-  # Servicio 2: Frontend UI (Dominio de Valeria)
+    expose: [ "8000" ]  # Servicio 2: Frontend UI (Dominio de Valeria)
   ui:
     # RECOMENDACIÓN: Usar una imagen pre-construida desde un registro.
     # Reemplaza 'tu-registro/geostab-ui:latest' con el nombre real de tu imagen.
@@ -37,19 +32,27 @@ services:
       FASTAPI_URL: http://api:8000 
     depends_on:
       - api
+    expose: [ "8501" ]
 
 # Servicio 4: Proxy Inverso (Dominio de Nattan - Despliegue)
   nginx:
-    # RECOMENDACIÓN: Usar una imagen pre-construida con tu configuración de Nginx.
-    # Reemplaza 'tu-registro/geostab-nginx:latest' con el nombre real de tu imagen.
-    image: ghcr.io/spokyttan/geostab-nginx:latest
+    image: nginx:stable-alpine
+    container_name: geostab_nginx
     restart: always
+    environment:
+      # Definición de variables de entorno consistentes con los logs.
+      DOMAIN_NAME: geostab.ddns.net
     ports:
-      - "80:80" # Exponer el puerto HTTP estándar al mundo exterior
-      - "443:443" # Exponer el puerto HTTPS
+      # CORRECCIÓN CRÍTICA: Exposición de puertos al Host OS, esencial para la accesibilidad externa.
+      - "80:80"
+      - "443:443"
     volumes:
-      - certbot_conf:/etc/letsencrypt # Volumen para los certificados
-      - certbot_www:/var/www/certbot # Volumen para la validación
+      # 1. Montaje del Webroot compartido (LECTURA, consistencia con Certbot).
+      - certbot_www:/var/www/certbot:ro
+      # 2. Montaje de los Certificados SSL (LECTURA).
+      - certbot_conf:/etc/letsencrypt:ro
+      # 3. Montaje del directorio de configuración Nginx para control dinámico de Challenge/Production.
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
     depends_on:
       - api
       - ui
@@ -57,11 +60,14 @@ services:
 # Servicio 5: Certbot para certificados SSL (Dominio de Nattan - Despliegue)
   certbot:
     image: certbot/certbot
+    container_name: geostab_certbot
+    # No necesita exposición de puertos, solo acceso a volúmenes para escribir.
     volumes:
-      - certbot_conf:/etc/letsencrypt
       - certbot_www:/var/www/certbot
-    # El comando para la renovación se ejecutará periódicamente.
-    # La obtención inicial se hace manualmente con 'docker-compose run'.
-    command: "renew --webroot -w /var/www/certbot"
-    depends_on:
-      - nginx
+      - certbot_conf:/etc/letsencrypt
+
+volumes:
+  certbot_www:
+    driver: local
+  certbot_conf:
+    driver: local
