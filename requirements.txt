@@ -1,8 +1,9 @@
 fastapi[standard]
 streamlit
 mysql-connector-python
-streamlit-js-eval
 numpy
 requests
 pytest
 Gunicorn
+python-dotenv
+alembic

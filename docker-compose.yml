@@ -2,7 +2,9 @@ version: '3.7'
 
 services:
   api:
-    image: ghcr.io/spokyttan/geostab-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     restart: always
     command: "gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.geostab_api.main:app --bind 0.0.0.0:8000"
     environment:
@@ -11,20 +13,24 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD_SECRET}
       MYSQL_DATABASE: GeoStab
       PYTHONPATH: /app/src
+      GEOSTAB_API_KEY: ${GEOSTAB_API_KEY}
     expose:
       - "8000"
-  
+
   ui:
-    image: ghcr.io/spokyttan/geostab-ui:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
     restart: always
     command: "streamlit run streamlit_app.py --server.port=8501"
     environment:
       FASTAPI_URL: http://api:8000
+      GEOSTAB_API_KEY: ${GEOSTAB_API_KEY}
     depends_on:
       - api
     expose:
       - "8501"
-  
+
   nginx:
     image: nginx:stable-alpine
     container_name: geostab_nginx
@@ -41,7 +47,7 @@ services:
     depends_on:
       - api
       - ui
-  
+
   certbot:
     image: certbot/certbot
     env_file:
