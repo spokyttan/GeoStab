@@ -1,4 +1,10 @@
 from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+import os
+
+# Cargar variables de entorno
+load_dotenv()
+
 from. import models # Importación relativa desde el mismo paquete
 from engine import math_engine
 from db_utils import queries

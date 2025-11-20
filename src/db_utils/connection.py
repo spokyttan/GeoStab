@@ -11,11 +11,11 @@ def get_db_connection():
     conn = None
     try:
         config = {
-            'user': os.environ.get('MYSQL_USER'),
-            'password': os.environ.get('MYSQL_PASSWORD'),
-            'host': os.environ.get('MYSQL_HOST'),
-            'database': os.environ.get('MYSQL_DATABASE'),
-            'port': 13043 # El puerto puede ser hardcodeado si no cambia, o pasarlo por variable de entorno.
+            'user': os.environ.get('MYSQL_USER', 'capitan'),
+            'password': os.environ.get('MYSQL_PASSWORD') or os.environ.get('MYSQL_PASSWORD_SECRET'),
+            'host': os.environ.get('MYSQL_HOST') or os.environ.get('INACAP_DB_HOST'),
+            'database': os.environ.get('MYSQL_DATABASE', 'GeoStab'),
+            'port': 13043
         }
         conn = mysql.connector.connect(**config)
         print("Conexión a la base de datos establecida.")
