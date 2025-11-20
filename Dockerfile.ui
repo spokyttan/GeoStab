@@ -1,4 +1,4 @@
-# /home/nattancm/Proyectos secretos/GeoStab/Dockerfile.ui
+# Dockerfile.ui - GeoStab Streamlit Frontend
 
 # 1. Usa una imagen oficial de Python como base. 'slim' es una versión ligera.
 FROM python:3.9-slim
@@ -12,12 +12,16 @@ COPY requirements.txt .
 # 4. Instala las dependencias de Python.
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Copia el código fuente de la aplicación de Streamlit.
-#    Copia el archivo desde la raíz del proyecto al directorio de trabajo '/app' en el contenedor.
+# 5. Copia pyproject.toml para la configuración del paquete
+COPY pyproject.toml .
+
+# 6. Copia el directorio src con todos los módulos necesarios
+COPY ./src /app/src
+
+# 7. Copia el código fuente de la aplicación de Streamlit.
 COPY streamlit_app.py .
 
-# 6. Expone el puerto en el que Streamlit se ejecutará.
+# 8. Expone el puerto en el que Streamlit se ejecutará.
 EXPOSE 8501
 
-# El comando para ejecutar la app ya está en tu docker-compose.yml, por lo que un CMD aquí es opcional,
-# pero es una buena práctica para la documentación y el uso independiente de la imagen.
+# El comando para ejecutar la app ya está en tu docker-compose.yml
