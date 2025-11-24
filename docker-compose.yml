@@ -22,10 +22,6 @@ services:
       context: .
       dockerfile: Dockerfile.ui
     restart: always
-    command: "streamlit run streamlit_app.py --server.port=8501"
-    environment:
-      FASTAPI_URL: http://api:8000
-      GEOSTAB_API_KEY: ${GEOSTAB_API_KEY}
     depends_on:
       - api
     expose:
