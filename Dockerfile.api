@@ -15,7 +15,10 @@ COPY requirements.txt .
 #    --no-cache-dir reduce el tamaño final de la imagen.
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Copia el resto del código fuente de la aplicación al contenedor.
+# 5. Copia pyproject.toml para la configuración del paquete
+COPY pyproject.toml .
+
+# 6. Copia el resto del código fuente de la aplicación al contenedor.
 COPY ./src /app/src
 
 # El comando para ejecutar la API ya está definido en tu docker-compose.yml,
