@@ -74,18 +74,26 @@ def run_migrations_online() -> None:
     # Load database URL from environment variables
     import os
     from dotenv import load_dotenv
-    load_dotenv()
+    from pathlib import Path
+
+    # Find .env file in project root
+    # env.py is in src/db_utils/migrations/
+    project_root = Path(__file__).parent.parent.parent.parent
+    dotenv_path = project_root / '.env'
+    load_dotenv(dotenv_path=dotenv_path)
     
     configuration = config.get_section(config.config_ini_section, {})
     
     # Override sqlalchemy.url if not set
     if not configuration.get("sqlalchemy.url"):
+        import urllib.parse
         user = os.getenv("MYSQL_USER", "capitan")
         password = os.getenv("MYSQL_PASSWORD") or os.getenv("MYSQL_PASSWORD_SECRET")
+        encoded_password = urllib.parse.quote_plus(password) if password else ""
         host = os.getenv("MYSQL_HOST") or os.getenv("INACAP_DB_HOST")
         database = os.getenv("MYSQL_DATABASE", "GeoStab")
         port = 13043
-        configuration["sqlalchemy.url"] = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
+        configuration["sqlalchemy.url"] = f"mysql+mysqlconnector://{user}:{encoded_password}@{host}:{port}/{database}"
     
     connectable = engine_from_config(
         configuration,

@@ -18,8 +18,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 5. Copia pyproject.toml para la configuración del paquete
 COPY pyproject.toml .
 
-# 6. Copia el resto del código fuente de la aplicación al contenedor.
+# 5. Copia el directorio src con todos los módulos necesarios
 COPY ./src /app/src
+
+# 6. Copia alembic.ini para migraciones
+COPY alembic.ini .
 
 # El comando para ejecutar la API ya está definido en tu docker-compose.yml,
 # por lo que no es necesario un CMD o ENTRYPOINT aquí.
