@@ -15,7 +15,8 @@ from .connection import get_db_connection
 def save_planar_measurement(
     site_id: int,
     request_data: Any,  # PlanarAnalysisRequest de Pydantic
-    planar_risk: bool
+    planar_risk: bool,
+    project_id: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Guarda una medición de análisis planar en la base de datos.
@@ -45,9 +46,10 @@ def save_planar_measurement(
                     F1_DIP,
                     FRICTION_ANGLE,
                     PLANAR_RISK_DETECTED,
-                    MEASURED_AT
+                    MEASURED_AT,
+                    PROJECT_ID
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
             """
             
@@ -60,7 +62,8 @@ def save_planar_measurement(
                 request_data.fractura1.manteo,
                 request_data.angulo_friccion,
                 planar_risk,
-                datetime.now()
+                datetime.now(),
+                project_id
             )
             
             cursor.execute(query, values)
@@ -85,7 +88,8 @@ def save_planar_measurement(
 def save_wedge_measurement(
     site_id: int,
     request_data: Any,  # WedgeAnalysisRequest de Pydantic
-    wedge_risk: bool
+    wedge_risk: bool,
+    project_id: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Guarda una medición de análisis en cuña en la base de datos.
@@ -117,9 +121,10 @@ def save_wedge_measurement(
                     F2_DIP,
                     FRICTION_ANGLE,
                     WEDGE_RISK_DETECTED,
-                    MEASURED_AT
+                    MEASURED_AT,
+                    PROJECT_ID
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
             """
             
@@ -134,7 +139,8 @@ def save_wedge_measurement(
                 request_data.fractura2.manteo,
                 request_data.angulo_friccion,
                 wedge_risk,
-                datetime.now()
+                datetime.now(),
+                project_id
             )
             
             cursor.execute(query, values)
@@ -284,6 +290,112 @@ def delete_measurement(measurement_id: int) -> Dict[str, Any]:
         raise
 
 
+
+# =============================================================================
+# GESTIÓN DE PROYECTOS
+# =============================================================================
+
+def create_project(name: str, description: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Crea un nuevo proyecto.
+    """
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            query = "INSERT INTO PROJECTS (NAME, DESCRIPTION, CREATED_AT, UPDATED_AT) VALUES (%s, %s, %s, %s)"
+            now = datetime.now()
+            cursor.execute(query, (name, description, now, now))
+            conn.commit()
+            project_id = cursor.lastrowid
+            print(f"✅ Proyecto creado con ID: {project_id}")
+            return {"success": True, "project_id": project_id, "message": f"Proyecto '{name}' creado"}
+    except Exception as e:
+        print(f"❌ Error al crear proyecto: {e}")
+        raise
+
+def get_projects(limit: int = 50) -> list:
+    """
+    Obtiene lista de proyectos.
+    """
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor(dictionary=True)
+            query = "SELECT * FROM PROJECTS ORDER BY UPDATED_AT DESC LIMIT %s"
+            cursor.execute(query, (limit,))
+            return cursor.fetchall()
+    except Exception as e:
+        print(f"❌ Error al obtener proyectos: {e}")
+        raise
+
+def get_project_by_id(project_id: int) -> Optional[Dict[str, Any]]:
+    """
+    Obtiene un proyecto por su ID.
+    """
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor(dictionary=True)
+            query = "SELECT * FROM PROJECTS WHERE PROJECT_ID = %s"
+            cursor.execute(query, (project_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        print(f"❌ Error al obtener proyecto {project_id}: {e}")
+        raise
+
+def update_project(project_id: int, name: Optional[str] = None, description: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Actualiza un proyecto existente.
+    """
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            updates = []
+            values = []
+            if name:
+                updates.append("NAME = %s")
+                values.append(name)
+            if description:
+                updates.append("DESCRIPTION = %s")
+                values.append(description)
+            
+            if not updates:
+                return {"success": False, "message": "No hay cambios para actualizar"}
+            
+            updates.append("UPDATED_AT = %s")
+            values.append(datetime.now())
+            values.append(project_id)
+            
+            query = f"UPDATE PROJECTS SET {', '.join(updates)} WHERE PROJECT_ID = %s"
+            cursor.execute(query, tuple(values))
+            conn.commit()
+            
+            if cursor.rowcount > 0:
+                return {"success": True, "message": f"Proyecto {project_id} actualizado"}
+            return {"success": False, "message": "Proyecto no encontrado"}
+    except Exception as e:
+        print(f"❌ Error al actualizar proyecto: {e}")
+        raise
+
+def delete_project(project_id: int) -> Dict[str, Any]:
+    """
+    Elimina un proyecto (y sus mediciones asociadas si no hay restricción FK).
+    """
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            # Primero desvincular mediciones (o eliminarlas, según regla de negocio. Aquí desvinculamos)
+            cursor.execute("UPDATE MEASUREMENTS SET PROJECT_ID = NULL WHERE PROJECT_ID = %s", (project_id,))
+            
+            cursor.execute("DELETE FROM PROJECTS WHERE PROJECT_ID = %s", (project_id,))
+            conn.commit()
+            
+            if cursor.rowcount > 0:
+                return {"success": True, "message": f"Proyecto {project_id} eliminado"}
+            return {"success": False, "message": "Proyecto no encontrado"}
+    except Exception as e:
+        print(f"❌ Error al eliminar proyecto: {e}")
+        raise
+
+
 # =============================================================================
 # SCRIPT DE PRUEBA
 # =============================================================================
@@ -297,7 +409,6 @@ if __name__ == '__main__':
     from pathlib import Path
     
     # Encontrar el archivo .env en la raíz del proyecto
-    # Este archivo está dos niveles arriba: src/db_utils -> src -> raíz
     project_root = Path(__file__).parent.parent.parent
     dotenv_path = project_root / '.env'
     
@@ -305,18 +416,10 @@ if __name__ == '__main__':
     
     if not dotenv_path.exists():
         print(f"❌ ERROR: No se encontró .env en {dotenv_path}")
-        print("   Crea el archivo .env en la raíz del proyecto con:")
-        print("   INACAP_DB_HOST=db1.inacapacademicdatacenter.com")
-        print("   MYSQL_PASSWORD_SECRET=tu_password")
         exit(1)
     
     # Cargar variables de entorno
     load_dotenv(dotenv_path=dotenv_path)
-    
-    # Verificar que se cargaron
-    if not os.getenv('INACAP_DB_HOST'):
-        print("❌ ERROR: INACAP_DB_HOST no está definido en .env")
-        exit(1)
     
     # Configurar variables para connection.py
     os.environ['MYSQL_HOST'] = os.getenv('INACAP_DB_HOST')
@@ -327,10 +430,10 @@ if __name__ == '__main__':
     print(f"✅ Variables cargadas desde {dotenv_path}")
     
     print("=" * 60)
-    print("🧪 PRUEBAS DE QUERIES")
+    print("🧪 PRUEBAS DE QUERIES (INCLUYENDO PROYECTOS)")
     print("=" * 60)
     
-    # Crear un objeto mock para simular request_data
+    # Mocks
     class MockMeasurement:
         def __init__(self, rumbo, manteo):
             self.rumbo = rumbo
@@ -342,24 +445,20 @@ if __name__ == '__main__':
             self.fractura1 = MockMeasurement(135, 45)
             self.angulo_friccion = 30.0
     
-    class MockWedgeRequest:
-        def __init__(self):
-            self.talud = MockMeasurement(210, 70)
-            self.fractura1 = MockMeasurement(180, 60)
-            self.fractura2 = MockMeasurement(240, 65)
-            self.angulo_friccion = 35.0
-    
     try:
-        # 0️⃣ Preparación: Crear sitio de prueba
-        print("\n0️⃣ Creando sitio de prueba...")
+        # 0️⃣ Crear Proyecto de Prueba
+        print("\n0️⃣ Creando Proyecto de Prueba...")
+        proj_res = create_project("Proyecto Test Auto", "Descripción de prueba")
+        project_id = proj_res['project_id']
+        print(f"   Resultado: {proj_res}")
+
+        # 1️⃣ Crear sitio de prueba
+        print("\n1️⃣ Creando sitio de prueba...")
         test_site_id = 9999
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            # Limpiar si existe
             cursor.execute("DELETE FROM SITES WHERE SITE_ID = %s", (test_site_id,))
             conn.commit()
-            
-            # Crear sitio
             cursor.execute(
                 "INSERT INTO SITES (SITE_ID, SITE_NAME) VALUES (%s, %s)",
                 (test_site_id, "Sitio de Prueba Auto")
@@ -367,36 +466,35 @@ if __name__ == '__main__':
             conn.commit()
             print(f"   Sitio creado con ID: {test_site_id}")
 
-        # Prueba 1: Guardar medición planar
-        print("\n1️⃣ Probando save_planar_measurement...")
+        # 2️⃣ Guardar medición vinculada al proyecto
+        print("\n2️⃣ Guardar medición vinculada al proyecto...")
         planar_req = MockPlanarRequest()
-        result_planar = save_planar_measurement(site_id=test_site_id, request_data=planar_req, planar_risk=True)
+        result_planar = save_planar_measurement(
+            site_id=test_site_id, 
+            request_data=planar_req, 
+            planar_risk=True,
+            project_id=project_id
+        )
         print(f"   Resultado: {result_planar}")
         
-        # Prueba 2: Guardar medición en cuña
-        print("\n2️⃣ Probando save_wedge_measurement...")
-        wedge_req = MockWedgeRequest()
-        result_wedge = save_wedge_measurement(site_id=test_site_id, request_data=wedge_req, wedge_risk=False)
-        print(f"   Resultado: {result_wedge}")
-        
-        # Prueba 3: Obtener mediciones del sitio
-        print("\n3️⃣ Probando get_site_measurements...")
-        measurements = get_site_measurements(site_id=test_site_id, limit=5)
-        print(f"   Se obtuvieron {len(measurements)} mediciones")
-        
-        # Prueba 4: Obtener resumen de riesgos
-        print("\n4️⃣ Probando get_risk_summary...")
-        summary = get_risk_summary(site_id=test_site_id)
-        print(f"   Resumen: {summary}")
-        
-        # Prueba 5: Eliminar mediciones (Limpieza)
-        print("\n5️⃣ Probando delete_measurement (Limpieza)...")
+        # 3️⃣ Listar Proyectos
+        print("\n3️⃣ Listar Proyectos...")
+        projects = get_projects(limit=5)
+        print(f"   Proyectos encontrados: {len(projects)}")
+        print(f"   Último proyecto: {projects[0]}")
+
+        # 4️⃣ Actualizar Proyecto
+        print("\n4️⃣ Actualizar Proyecto...")
+        update_res = update_project(project_id, name="Proyecto Test Actualizado")
+        print(f"   Resultado: {update_res}")
+
+        # 5️⃣ Limpieza
+        print("\n5️⃣ Limpieza...")
         if result_planar['success']:
             delete_measurement(result_planar['measurement_id'])
-        if result_wedge['success']:
-            delete_measurement(result_wedge['measurement_id'])
-            
-        # Limpieza final del sitio
+        
+        delete_project(project_id)
+        
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM SITES WHERE SITE_ID = %s", (test_site_id,))
@@ -410,11 +508,3 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"\n❌ ERROR EN PRUEBAS: {e}")
         print("=" * 60)
-        # Intentar limpiar en caso de error
-        try:
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM SITES WHERE SITE_ID = 9999")
-                conn.commit()
-        except:
-            pass

@@ -15,19 +15,135 @@ document.addEventListener('DOMContentLoaded', () => {
     // hay botones de "Guardar/Cargar". Vamos a convertir el botón "Guardar" en "Analizar" 
     // o añadir un listener al botón que añadiremos dinámicamente si falta.
 
-    // Vamos a inyectar funcionalidad al botón "Guardar" para que actúe como "Analizar" para la demo
+    // Configurar botones de acción
     const actionButtons = document.querySelectorAll('.button-group-demo button');
-    if (actionButtons.length > 0) {
-        const btnAnalyze = actionButtons[0];
-        btnAnalyze.textContent = "⚡ ANALIZAR";
-        btnAnalyze.classList.remove('secondary');
-        btnAnalyze.classList.add('primary');
 
-        btnAnalyze.addEventListener('click', (e) => {
+    let currentProjectId = null;
+
+    if (actionButtons.length >= 2) {
+        const btnSave = actionButtons[0]; // 💾 Guardar
+        const btnLoad = actionButtons[1]; // 📂 Cargar
+
+        // Botón Guardar -> Ejecutar Análisis y Guardar
+        btnSave.addEventListener('click', async (e) => {
             e.preventDefault();
-            runAnalysis();
+            console.log("Botón Guardar presionado");
+            await handleSave();
+        });
+
+        // Botón Cargar -> Abrir Modal
+        btnLoad.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log("Botón Cargar presionado");
+            openProjectModal();
+        });
+    } else {
+        console.warn("No se encontraron los botones de acción en .button-group-demo");
+    }
+
+    // Modal Logic
+    const modal = document.getElementById('project-modal');
+    const btnCloseModal = document.getElementById('btn-close-modal');
+
+    if (btnCloseModal) {
+        btnCloseModal.addEventListener('click', () => {
+            modal.style.display = 'none';
         });
     }
+
+    async function openProjectModal() {
+        if (modal) {
+            modal.style.display = 'flex';
+            await loadProjects();
+        }
+    }
+
+    async function loadProjects() {
+        const list = document.getElementById('project-list');
+        list.innerHTML = '<li style="color: var(--text-muted);">Cargando...</li>';
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/projects`);
+            if (!res.ok) throw new Error('Error al cargar proyectos');
+            const projects = await res.json();
+
+            list.innerHTML = '';
+            if (projects.length === 0) {
+                list.innerHTML = '<li style="color: var(--text-muted);">No hay proyectos guardados.</li>';
+                return;
+            }
+
+            projects.forEach(p => {
+                const li = document.createElement('li');
+                li.style.cssText = 'padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer; display: flex; justify-content: space-between; align-items: center;';
+                li.innerHTML = `
+                    <span>${p.NAME}</span>
+                    <span style="font-size: 12px; color: var(--text-muted);">${new Date(p.UPDATED_AT).toLocaleDateString()}</span>
+                `;
+                li.addEventListener('click', () => selectProject(p));
+
+                // Hover effect
+                li.addEventListener('mouseenter', () => li.style.background = 'rgba(255,255,255,0.05)');
+                li.addEventListener('mouseleave', () => li.style.background = 'transparent');
+
+                list.appendChild(li);
+            });
+
+        } catch (error) {
+            console.error(error);
+            list.innerHTML = '<li style="color: var(--danger);">Error al cargar proyectos.</li>';
+        }
+    }
+
+    function selectProject(project) {
+        currentProjectId = project.PROJECT_ID;
+        const nameInput = document.querySelector('.input-modern[placeholder="Ej: Talud Ruta 5 Norte"]');
+        if (nameInput) {
+            nameInput.value = project.NAME;
+        }
+
+        modal.style.display = 'none';
+        showToast(`Proyecto "${project.NAME}" cargado`, 'success');
+    }
+
+    async function handleSave() {
+        const nameInput = document.querySelector('.input-modern[placeholder="Ej: Talud Ruta 5 Norte"]');
+        const projectName = nameInput ? nameInput.value.trim() : "Sin Nombre";
+
+        if (!projectName) {
+            showToast("Por favor ingresa un nombre para el proyecto", "warning");
+            return;
+        }
+
+        // Si no hay ID o el nombre cambió, crear/actualizar proyecto
+        // Por simplicidad: Si no hay ID, creamos uno nuevo.
+        if (!currentProjectId) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/projects`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: projectName, description: "Creado desde App" })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    currentProjectId = data.project_id;
+                    console.log("Nuevo proyecto creado:", currentProjectId);
+                }
+            } catch (e) {
+                console.error("Error creando proyecto:", e);
+                // Continuamos sin ID de proyecto si falla (modo offline o error)
+            }
+        }
+
+        runAnalysis();
+    }
+
+    // Configuración API
+    // Si estamos en local (file://), usar localhost:8080. Si estamos en web (http/https), usar /api (proxy)
+    const API_BASE_URL = window.location.protocol === 'file:'
+        ? "http://127.0.0.1:8080"
+        : "/api";
 
     // --- SYNC MANAGER START ---
     const SyncManager = {
@@ -64,31 +180,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
             for (const item of queue) {
                 try {
-                    // Simulate API Call (Replace with real fetch when API is ready)
-                    // const response = await fetch('/api/analyze/save', { ... });
+                    console.log('Sincronizando item:', item);
 
-                    // For now, we assume the API is blocked, so we simulate a failure if we really wanted to test sync
-                    // But to demonstrate "Sync", we will simulate success after a timeout if online
+                    // Preparar payloads para la API
+                    const planarPayload = {
+                        talud: item.talud,
+                        fractura1: item.f1,
+                        angulo_friccion: item.anguloFriccion,
+                        site_id: 9999, // ID temporal por defecto
+                        project_id: item.project_id || currentProjectId || null
+                    };
 
-                    // Real implementation would be:
-                    /*
-                    const response = await fetch('/api/projects/1/measurements', {
+                    const wedgePayload = {
+                        talud: item.talud,
+                        fractura1: item.f1,
+                        fractura2: item.f2,
+                        angulo_friccion: item.anguloFriccion,
+                        site_id: 9999, // ID temporal por defecto
+                        project_id: item.project_id || currentProjectId || null
+                    };
+
+                    // Enviar a la API (Planar)
+                    const resPlanar = await fetch(`${API_BASE_URL}/analyze/planar`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(item)
+                        body: JSON.stringify(planarPayload)
                     });
-                    if (!response.ok) throw new Error('API Error');
-                    */
 
-                    console.log('Sincronizando item:', item);
-                    // Simulating success for now to clear queue in demo
-                    // In production, uncomment the fetch above and remove this line
-                    await new Promise(r => setTimeout(r, 500));
+                    if (!resPlanar.ok) throw new Error('Error API Planar');
 
+                    // Enviar a la API (Wedge) - Solo si hay datos de F2
+                    if (item.f2 && (item.f2.rumbo !== 0 || item.f2.manteo !== 0)) {
+                        const resWedge = await fetch(`${API_BASE_URL}/analyze/wedge`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(wedgePayload)
+                        });
+                        if (!resWedge.ok) throw new Error('Error API Wedge');
+                    }
+
+                    // Si todo sale bien, eliminar de la cola
                     this.removeFromQueue(item.id);
+                    showToast('Datos sincronizados', 'success');
+
                 } catch (error) {
                     console.error('Error al sincronizar item:', error);
-                    // Keep in queue if failed
+                    // Se mantiene en la cola para reintentar luego
                 }
             }
 
@@ -192,13 +329,14 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         if (navigator.onLine) {
-            // Try to send to API (Simulated for now as API is blocked)
-            // In real scenario: fetch('/api/analyze', ...).catch(() => SyncManager.addToQueue(analysisData));
+            // Intentar enviar directamente a la API
+            console.log("Intentando enviar a API...");
 
-            // Since API is blocked, we will simulate a failure and add to queue to demonstrate functionality
-            console.log("Intentando enviar a API... (Simulando fallo por bloqueo)");
+            // Usamos SyncManager para "encolar y enviar inmediatamente"
+            // Esto simplifica la lógica: siempre encolamos, y si hay red, vaciamos la cola al instante.
             SyncManager.addToQueue(analysisData);
-            showToast('Guardado localmente (API Bloqueada)', 'warning');
+            SyncManager.syncPendingData();
+
         } else {
             SyncManager.addToQueue(analysisData);
             showToast('Guardado offline', 'info');

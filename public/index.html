@@ -7,6 +7,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>GeoStab — Alerta Temprana de Taludes</title>
+  <script src="js/math_engine.js" defer></script>
+  <script src="js/app.js" defer></script>
   <!-- Placeholder for CSS Injection -->
   <style>
     /* VARIABLES Y RESET */
@@ -1686,21 +1688,6 @@
     }
 
     ::-moz-selection {
-      background: var(--primary);
-      color: white;
-    }
-
-    /* SCROLLBAR */
-    ::-webkit-scrollbar {
-      width: 12px;
-    }
-
-    background: var(--primary);
-    }
-
-    /* SYNC & OFFLINE STYLES */
-    .toast {
-      position: fixed;
       bottom: 20px;
       right: 20px;
       padding: 12px 24px;
@@ -2319,6 +2306,23 @@
           <a href="#">Términos</a>
           <a href="#">Privacidad</a>
           <a href="#">Cookies</a>
+        </div>
+      </div>
+
+      <!-- Modal de Proyectos -->
+      <div id="project-modal" class="modal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3000; align-items: center; justify-content: center;">
+        <div class="modal-content"
+          style="background: var(--dark-card); padding: 30px; border-radius: 16px; width: 90%; max-width: 500px; border: 1px solid rgba(255,255,255,0.1);">
+          <h3 style="margin-bottom: 20px; color: var(--primary);">Seleccionar Proyecto</h3>
+          <ul id="project-list" style="list-style: none; max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+            <!-- Lista dinámica -->
+            <li style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted);">
+              Cargando...</li>
+          </ul>
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button id="btn-close-modal" class="btn-modern secondary" style="padding: 8px 16px;">Cancelar</button>
+          </div>
         </div>
       </div>
 
