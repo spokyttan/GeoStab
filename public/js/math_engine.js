@@ -1,107 +1,162 @@
 /**
  * GeoStab Math Engine (Client-Side)
  * Implementación de análisis cinemático para fallas planares y en cuña.
+ * Portado de src/engine/math_engine.py (Python) para paridad exacta.
  */
 
 const MathEngine = {
+    DEG2RAD: Math.PI / 180.0,
+    RAD2DEG: 180.0 / Math.PI,
+
     /**
-     * Convierte grados a radianes
+     * Diferencia mínima absoluta entre dos ángulos en grados (0..180).
      */
-    toRadians: (degrees) => {
-        return degrees * (Math.PI / 180);
+    angleDiffDeg: (a, b) => {
+        return Math.abs((a - b + 180) % 360 - 180);
     },
 
     /**
-     * Convierte radianes a grados
+     * Convierte Dip Direction (alpha) y Dip (beta) a vector normal unitario.
+     * Convención: X=Este, Y=Norte, Z=Arriba.
      */
-    toDegrees: (radians) => {
-        return radians * (180 / Math.PI);
+    dipDirDipToNormal: (alphaDeg, betaDeg) => {
+        const a = alphaDeg * MathEngine.DEG2RAD;
+        const b = betaDeg * MathEngine.DEG2RAD;
+
+        const nx = Math.sin(b) * Math.sin(a);
+        const ny = Math.sin(b) * Math.cos(a);
+        const nz = Math.cos(b);
+
+        const norm = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (norm === 0) return [0, 0, 0]; // Should not happen with valid angles
+        return [nx / norm, ny / norm, nz / norm];
     },
 
     /**
-     * Calcula la diferencia angular entre dos direcciones (0-360)
-     * Retorna el valor absoluto de la diferencia menor (<= 180)
+     * Calcula Plunge y Trend de un vector.
      */
-    angleDifference: (angle1, angle2) => {
-        let diff = Math.abs(angle1 - angle2);
-        if (diff > 180) {
-            diff = 360 - diff;
-        }
-        return diff;
+    vectorPlungeTrend: (v) => {
+        const [vx, vy, vz] = v;
+        const horizMag = Math.hypot(vx, vy);
+
+        // Plunge: ángulo con la horizontal (valor absoluto)
+        const plungeRad = Math.atan2(Math.abs(-vz), horizMag);
+        const plungeDeg = plungeRad * MathEngine.RAD2DEG;
+
+        // Trend: azimut desde el Norte
+        const trendRad = Math.atan2(vx, vy);
+        let trendDeg = (trendRad * MathEngine.RAD2DEG) % 360;
+        if (trendDeg < 0) trendDeg += 360;
+
+        return { plunge: plungeDeg, trend: trendDeg };
     },
 
     /**
      * Análisis de Falla Planar
-     * Criterios (Markland Test):
-     * 1. La dirección de buzamiento del plano debe estar dentro de ±20° de la dirección de buzamiento del talud.
-     * 2. El buzamiento del plano debe ser menor que el buzamiento del talud (ψ_f < ψ_s).
-     * 3. El buzamiento del plano debe ser mayor que el ángulo de fricción (ψ_f > φ).
      */
-    analyzePlanar: (talud, fractura, anguloFriccion) => {
-        const cond1 = MathEngine.angleDifference(talud.rumbo, fractura.rumbo) <= 20;
-        const cond2 = fractura.manteo < talud.manteo;
-        const cond3 = fractura.manteo > anguloFriccion;
+    analyzePlanar: (talud, fractura, anguloFriccion, strikeTolDeg = 20.0) => {
+        const a_p = talud.rumbo; // Dip Direction
+        const b_p = talud.manteo; // Dip
+        const a_f = fractura.rumbo;
+        const b_f = fractura.manteo;
 
-        const isRisk = cond1 && cond2 && cond3;
+        // 1. Strike (Paralelismo)
+        const diffDir = MathEngine.angleDiffDeg(a_p, a_f);
+        const condStrike = diffDir <= strikeTolDeg;
 
-        let message = "Estable. No se cumplen condiciones cinemáticas.";
+        // 2. Daylighting (Afloramiento)
+        // La fractura debe ser menor que el talud para salir a superficie
+        const condDaylight = b_f < b_p;
+
+        // 3. Fricción
+        // La fractura debe ser más empinada que la fricción para deslizar
+        const condFriction = b_f > anguloFriccion;
+
+        const isRisk = condStrike && condDaylight && condFriction;
+
+        let message = "Estable.";
         if (isRisk) {
-            message = "RIESGO CRÍTICO: Posible falla planar detectada.";
-        } else if (cond1 && cond2) {
-            message = "Precaución: Geometría favorable para deslizamiento, pero fricción suficiente.";
+            message = "RIESGO DETECTADO: Falla Planar.";
         }
 
         return {
             risk_detected: isRisk,
             message: message,
             details: {
-                condition_orientation: cond1,
-                condition_daylighting: cond2,
-                condition_friction: cond3
+                cond_strike: condStrike,
+                cond_daylight: condDaylight,
+                cond_friction: condFriction,
+                diff_dir: diffDir
             }
         };
     },
 
     /**
-     * Análisis de Falla en Cuña (Simplificado)
-     * Calcula la línea de intersección de dos planos y verifica si aflora en el talud.
+     * Análisis de Falla en Cuña
      */
     analyzeWedge: (talud, f1, f2, anguloFriccion) => {
-        // Conversión a notación de vector normal para cálculo de intersección
-        // (Simplificación: Usaremos lógica geométrica directa para el plunge de intersección)
+        // Normales
+        const nA = MathEngine.dipDirDipToNormal(f1.rumbo, f1.manteo);
+        const nB = MathEngine.dipDirDipToNormal(f2.rumbo, f2.manteo);
+        const nTalud = MathEngine.dipDirDipToNormal(talud.rumbo, talud.manteo);
 
-        // Cálculo aproximado del Plunge (inmersión) de la intersección
-        // Esta es una simplificación. En una implementación completa se usaría álgebra vectorial.
-        // Para este MVP, asumiremos riesgo si ambos planos son individualmente riesgosos o casi riesgosos.
+        // Producto Cruz para hallar línea de intersección (I = nA x nB)
+        const Ix = nA[1] * nB[2] - nA[2] * nB[1];
+        const Iy = nA[2] * nB[0] - nA[0] * nB[2];
+        const Iz = nA[0] * nB[1] - nA[1] * nB[0];
 
-        // Lógica de "Peor Caso" para MVP:
-        // Si ambas fracturas tienen buzamientos > fricción y orientaciones convergentes.
+        const I = [Ix, Iy, Iz];
+        const INorm = Math.sqrt(Ix * Ix + Iy * Iy + Iz * Iz);
 
-        const f1_risk = f1.manteo > anguloFriccion;
-        const f2_risk = f2.manteo > anguloFriccion;
+        if (INorm < 1e-8) {
+            return {
+                risk_detected: false,
+                message: "Planos paralelos. No hay intersección.",
+                valid_wedge: false
+            };
+        }
 
-        // Diferencia de orientación entre planos (deben formar una cuña, no ser paralelos)
-        const diff_planes = MathEngine.angleDifference(f1.rumbo, f2.rumbo);
-        const is_wedge_geometry = diff_planes > 20 && diff_planes < 160;
+        const IUnit = [Ix / INorm, Iy / INorm, Iz / INorm];
+        const { plunge: plungeDeg, trend: trendDeg } = MathEngine.vectorPlungeTrend(IUnit);
 
-        const isRisk = f1_risk && f2_risk && is_wedge_geometry;
+        // Obtener el Dip aparente del talud (referencia)
+        // En Python: beta_p_deg = np.arccos(np.clip(nz, -1.0, 1.0)) * RAD2DEG
+        // nz del talud es nTalud[2]
+        const nz = nTalud[2];
+        // clip
+        const clippedNz = Math.min(Math.max(nz, -1.0), 1.0);
+        const betaPDeg = Math.acos(clippedNz) * MathEngine.RAD2DEG;
+
+        // 1. Daylighting (Afloramiento)
+        const condDaylight = plungeDeg < betaPDeg;
+
+        // 2. Fricción
+        const condFriction = plungeDeg > anguloFriccion;
+
+        const isRisk = condDaylight && condFriction;
 
         let message = "Estable.";
         if (isRisk) {
-            message = "RIESGO DE CUÑA: Intersección de planos crítica.";
+            message = "RIESGO DETECTADO: Falla en Cuña.";
         }
 
         return {
             risk_detected: isRisk,
             message: message,
             details: {
-                f1_friction: f1_risk,
-                f2_friction: f2_risk,
-                wedge_geometry: is_wedge_geometry
+                cond_daylight: condDaylight,
+                cond_friction: condFriction,
+                plunge: plungeDeg,
+                trend: trendDeg
             }
         };
     }
 };
 
-// Exportar para uso en navegador
-window.MathEngine = MathEngine;
+// Exportar para uso en navegador y Node.js (para tests)
+if (typeof window !== 'undefined') {
+    window.MathEngine = MathEngine;
+}
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = MathEngine;
+}
