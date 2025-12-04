@@ -1,13 +1,15 @@
-# GeoStab - Sistema de Análisis Geotécnico
+# GeoStab - Sistema de Análisisis Geotécnico
 
-Sistema de monitoreo y análisis de estabilidad de taludes con capacidades offline y alertas tempranas.
+Sistema de monitoreo y análisis de estabilidad de taludes con capacidades offline, gestión de proyectos y alertas tempranas.
 
 ## 🎯 Características Principales
 
 - ✅ **PWA Offline-First**: Funciona sin conexión a internet
 - ✅ **Análisis Cinemático**: Detección de fallas planares y en cuña
+- ✅ **Gestión de Proyectos**: Guardar, cargar y gestionar múltiples proyectos
+- ✅ **Aislamiento por Sesión**: Privacidad de datos con UUIDs anónimos
 - ✅ **Sincronización Automática**: Cola de datos local con sync cuando hay conexión
-- ✅ **Interfaz Moderna**: Diseño responsive con tema oscuro/naranja
+- ✅ **Interfaz Moderna**: Diseño responsive con gestión dinámica de discontinuidades
 - ✅ **SSL/HTTPS**: Desplegado en producción con certificado Let's Encrypt
 
 ## 🏗️ Arquitectura
@@ -16,32 +18,37 @@ Sistema de monitoreo y análisis de estabilidad de taludes con capacidades offli
 - **Stack**: HTML5 + CSS3 + Vanilla JavaScript
 - **Motor Matemático**: `public/js/math_engine.js` (análisis geotécnico)
 - **Service Worker**: Cache-first strategy para trabajo offline
-- **LocalStorage**: Cola de sincronización y persistencia local
+- **LocalStorage**: Cola de sincronización, persistencia local y session UUID
 
 ### Backend (API)
 - **Framework**: FastAPI (Python 3.9)
-- **Base de Datos**: MySQL (INACAP)
-- **Migraciones**: Alembic
+- **Base de Datos**: MySQL (INACAP) con Alembic migrations
 - **Servidor**: Gunicorn + Uvicorn workers
+- **Autenticación**: Session-based con UUID anónimos
 
 ### Infraestructura
 - **Proxy**: Nginx (reverse proxy + SSL termination)
 - **Contenedores**: Docker + Docker Compose
 - **Dominio**: geostab.ddns.net
-- **Servidor**: Ubuntu 22.04 LTS
+- **Servidor**: Ubuntu 20.04 LTS (Oracle Cloud Infrastructure - Free Tier)
 
 ## 📁 Estructura del Proyecto
 
 ```
 GeoStab/
+├── .github/workflows/         # CI/CD (GitHub Actions)
+├── docs/                      # Documentación e imágenes
+│   └── imagenes-geostab/
+├── nginx/                     # Configuración Nginx + SSL
 ├── public/                    # PWA estática
-│   ├── index.html            # Página principal
-│   ├── css/style.css         # Estilos (inlined)
+│   ├── index.html
 │   ├── js/
 │   │   ├── math_engine.js    # Motor de cálculo geotécnico
 │   │   └── app.js            # Lógica de la app + SyncManager
 │   ├── sw.js                 # Service Worker
 │   └── manifest.json         # PWA manifest
+├── scripts/                   # Scripts de utilidad
+│   └── deploy.sh             # Script de despliegue automatizado
 ├── src/
 │   ├── geostab_api/          # API FastAPI
 │   │   ├── main.py           # Endpoints REST
@@ -52,9 +59,16 @@ GeoStab/
 │       ├── connection.py
 │       ├── queries.py
 │       └── migrations/       # Alembic migrations
-├── nginx_ui.conf             # Config Nginx para PWA
+├── tests/                     # Tests unitarios
+├── .env                       # Variables de entorno (no versionado)
+├── .gitignore
 ├── docker-compose.yml        # Orquestación de servicios
-└── requirements.txt          # Dependencias Python
+├── Dockerfile.api
+├── Dockerfile.ui
+├── nginx_ui.conf
+├── alembic.ini
+├── requirements.txt
+└── README.md
 ```
 
 ## 🚀 Despliegue Local
@@ -94,42 +108,42 @@ GeoStab/
 ### Actualizar Producción
 
 ```bash
-# En tu máquina local
-git push origin main
-
 # Conectar al servidor
-ssh ubuntu@geostab.ddns.net
+ssh ubuntu@<IP_SERVIDOR>
 
-# Actualizar código
-cd ~/geostab
-git pull origin main
+# Navegar al proyecto
+cd ~/GeoStab
 
-# Reconstruir contenedores
-sudo docker-compose up -d --build
-
-# Reiniciar servicios
-sudo docker-compose restart
+# Ejecutar script de despliegue
+./scripts/deploy.sh
 ```
+
+El script `deploy.sh` automatiza:
+- Descarga de cambios desde GitHub
+- Reconstrucción de contenedores Docker
+- Aplicación de migraciones de base de datos
+- Reinicio de servicios
 
 ## 📊 Estado Actual
 
 ### ✅ Completado
 - [x] PWA con Service Worker y manifest
-- [x] Interfaz responsive (diseño de Valeria)
-- [x] Motor matemático básico (JS + Python)
+- [x] Interfaz responsive con gestión de discontinuidades
+- [x] Motor matemático (análisis planar y wedge)
 - [x] Sistema de sincronización offline
-- [x] API básica (FastAPI)
+- [x] API completa con gestión de proyectos
+- [x] Base de datos con migraciones Alembic
+- [x] Aislamiento de proyectos por sesión UUID
 - [x] Despliegue en producción con Docker
 - [x] SSL/HTTPS con Let's Encrypt
-- [x] Cache-busting y optimización de assets
+- [x] Script de despliegue automatizado
 
-### ⏳ Pendiente
-- [ ] **BLOQUEADO**: Conectividad Database (INACAP firewall)
-- [ ] Migración de tabla `PROJECTS`
-- [ ] Endpoints API para gestión de proyectos
-- [ ] Validación geotécnica del motor matemático
-- [ ] Tests unitarios e integración
+### 🔮 Mejoras Futuras
+- [ ] Sistema de autenticación de usuarios (reemplazar UUIDs anónimos)
+- [ ] Validación geotécnica exhaustiva del motor matemático
+- [ ] Tests unitarios e integración completos
 - [ ] Integración con sensores/cámara
+- [ ] Dashboard de análisis histórico
 
 ## 🔧 Comandos Útiles
 
@@ -144,19 +158,19 @@ docker-compose restart api
 # Acceder al contenedor
 docker-compose exec api bash
 
-# Renovar certificado SSL
-~/geostab/renew-cert.sh
+# Verificar base de datos
+docker-compose exec -T api python -c "from db_utils.connection import get_db_connection; ..."
 
-# Limpiar caché del navegador (en producción)
-# Visitar: https://geostab.ddns.net/reset.html
+# Limpiar Service Worker (navegador)
+# DevTools → Application → Service Workers → Unregister
 ```
 
 ## 🛠️ Desarrollo
 
 ### Instalar dependencias
 ```bash
-python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # En Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -168,12 +182,11 @@ uvicorn geostab_api.main:app --reload --port 8000
 
 ### Ejecutar PWA localmente
 ```bash
-# Cualquier servidor HTTP estático
 cd public
 python -m http.server 8501
 ```
 
-## 📝 Migración de Base de Datos
+## 📝 Migraciones de Base de Datos
 
 ```bash
 # Crear nueva migración
@@ -202,7 +215,3 @@ Proyecto académico - INACAP 2024
 - **Repositorio**: https://github.com/spokyttan/GeoStab
 - **Producción**: https://geostab.ddns.net
 - **API Docs**: https://geostab.ddns.net/api/docs
-
----
-
-**Nota**: El proyecto actualmente experimenta un bloqueo de conectividad con la base de datos de INACAP (`Error 101: Network is unreachable`). La funcionalidad de sincronización offline permite seguir usando la aplicación mientras se resuelve el issue de infraestructura.
