@@ -1,8 +1,9 @@
 name: Build and Push Docker Images
 
 on:
-  push:
-    branches: [ "main" ]
+  # Deshabilitado temporalmente - no usamos GitHub Container Registry
+  # push:
+  #   branches: [ "main" ]
   workflow_dispatch:
 
 env:
