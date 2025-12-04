@@ -25,22 +25,8 @@ app.add_middleware(
 
 @app.middleware("http")
 async def validate_api_key(request: Request, call_next):
-    # Permitir acceso libre a la documentación, root y openapi
-    if request.url.path in ["/", "/docs", "/openapi.json"]:
-        return await call_next(request)
-    
-    # Si no hay API Key configurada en el servidor, permitir todo (modo dev inseguro)
-    # O bloquear todo si prefieres seguridad por defecto. Aquí permitimos si no hay key.
-    if not API_KEY:
-        return await call_next(request)
-
-    api_key_header = request.headers.get("X-API-Key")
-    if api_key_header != API_KEY:
-        return JSONResponse(
-            status_code=status.HTTP_403_FORBIDDEN,
-            content={"detail": "Invalid or missing API Key"}
-        )
-    
+    # Middleware deshabilitado para facilitar demo
+    # TODO: Rehabilitar con API Key adecuada para producción final
     return await call_next(request)
 
 from . import models # Importación relativa desde el mismo paquete
