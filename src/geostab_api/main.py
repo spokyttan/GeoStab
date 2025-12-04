@@ -197,3 +197,62 @@ def analyze_wedge(request: models.WedgeAnalysisRequest):
         message=message,
         db_save_status=db_status
     )
+# =============================================================================
+# ENDPOINTS DE FOTOS (Phase 4 - Sensor Integration)
+# =============================================================================
+
+@app.post("/photos", status_code=201)
+def create_photo(request: Request, photo: models.PhotoCreate):
+    """Crear una foto de discontinuidad con metadata de sensores."""
+    try:
+        session_id = request.headers.get("X-Session-ID") or photo.session_id
+        result = queries.create_discontinuity_photo(
+            project_id=photo.project_id,
+            discontinuity_index=photo.discontinuity_index,
+            image_data=photo.image_data,
+            dip=photo.dip,
+            dip_direction=photo.dip_direction,
+            latitude=photo.latitude,
+            longitude=photo.longitude,
+            gps_accuracy=photo.gps_accuracy,
+            captured_at=photo.captured_at.isoformat(),
+            session_id=session_id
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/photos/project/{project_id}")
+def get_project_photos(project_id: int, include_images: bool = False):
+    """Obtener todas las fotos de un proyecto."""
+    try:
+        photos = queries.get_photos_by_project(project_id, include_image_data=include_images)
+        return {"photos": photos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/photos/{photo_id}")
+def get_single_photo(photo_id: int):
+    """Obtener una foto específica (incluye IMAGE_DATA)."""
+    try:
+        photo = queries.get_photo_by_id(photo_id)
+        if not photo:
+            raise HTTPException(status_code=404, detail="Photo not found")
+        return photo
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/photos/{photo_id}")
+def remove_photo(photo_id: int):
+    """Eliminar una foto."""
+    try:
+        success = queries.delete_photo(photo_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Photo not found")
+        return {"success": True, "message": "Photo deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

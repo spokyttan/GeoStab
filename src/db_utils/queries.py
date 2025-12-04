@@ -512,3 +512,84 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"\n❌ ERROR EN PRUEBAS: {e}")
         print("=" * 60)
+# =============================================================================
+# GESTIÓN DE FOTOS DE DISCONTINUIDADES
+# =============================================================================
+
+def create_discontinuity_photo(
+    project_id: int,
+    discontinuity_index: int,
+    image_data: str,
+    dip: Optional[float] = None,
+    dip_direction: Optional[float] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    gps_accuracy: Optional[float] = None,
+    captured_at: str = None,
+    session_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Guarda una foto de discontinuidad con metadata de sensores."""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            query = """
+            INSERT INTO DISCONTINUITY_PHOTOS 
+            (PROJECT_ID, DISCONTINUITY_INDEX, IMAGE_DATA, DIP, DIP_DIRECTION, 
+             LATITUDE, LONGITUDE, GPS_ACCURACY, CAPTURED_AT, SESSION_ID)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(query, (
+                project_id, discontinuity_index, image_data, dip, dip_direction,
+                latitude, longitude, gps_accuracy, captured_at, session_id
+            ))
+            conn.commit()
+            photo_id = cursor.lastrowid
+            print(f"✅ Foto guardada con ID: {photo_id}")
+            return {"success": True, "photo_id": photo_id}
+    except Exception as e:
+        print(f"❌ Error al guardar foto: {e}")
+        raise
+
+def get_photos_by_project(project_id: int, include_image_data: bool = False) -> list:
+    """Obtiene todas las fotos de un proyecto."""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor(dictionary=True)
+            if include_image_data:
+                query = "SELECT * FROM DISCONTINUITY_PHOTOS WHERE PROJECT_ID = %s ORDER BY CAPTURED_AT DESC"
+            else:
+                query = """
+                SELECT PHOTO_ID, PROJECT_ID, DISCONTINUITY_INDEX, DIP, DIP_DIRECTION,
+                       LATITUDE, LONGITUDE, GPS_ACCURACY, CAPTURED_AT, CREATED_AT, SESSION_ID
+                FROM DISCONTINUITY_PHOTOS WHERE PROJECT_ID = %s ORDER BY CAPTURED_AT DESC
+                """
+            cursor.execute(query, (project_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        print(f"❌ Error al obtener fotos del proyecto {project_id}: {e}")
+        raise
+
+def get_photo_by_id(photo_id: int) -> Optional[Dict[str, Any]]:
+    """Obtiene una foto específica por ID (incluye IMAGE_DATA)."""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor(dictionary=True)
+            query = "SELECT * FROM DISCONTINUITY_PHOTOS WHERE PHOTO_ID = %s"
+            cursor.execute(query, (photo_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        print(f"❌ Error al obtener foto {photo_id}: {e}")
+        raise
+
+def delete_photo(photo_id: int) -> bool:
+    """Elimina una foto por ID."""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            query = "DELETE FROM DISCONTINUITY_PHOTOS WHERE PHOTO_ID = %s"
+            cursor.execute(query, (photo_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        print(f"❌ Error al eliminar foto {photo_id}: {e}")
+        raise

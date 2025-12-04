@@ -47,3 +47,33 @@ class ProjectResponse(BaseModel):
     DESCRIPTION: Optional[str]
     CREATED_AT: Optional[datetime]
     UPDATED_AT: Optional[datetime]
+
+# --- Modelos de Fotos ---
+
+class PhotoCreate(BaseModel):
+    """Modelo para crear una foto de discontinuidad."""
+    project_id: int
+    discontinuity_index: int
+    image_data: str  # Base64 encoded JPEG
+    dip: Optional[float] = None
+    dip_direction: Optional[float] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    gps_accuracy: Optional[float] = None
+    captured_at: datetime
+    session_id: Optional[str] = None
+
+class PhotoResponse(BaseModel):
+    """Respuesta de foto."""
+    PHOTO_ID: int
+    PROJECT_ID: int
+    DISCONTINUITY_INDEX: int
+    DIP: Optional[float]
+    DIP_DIRECTION: Optional[float]
+    LATITUDE: Optional[float]
+    LONGITUDE: Optional[float]
+    GPS_ACCURACY: Optional[float]
+    CAPTURED_AT: datetime
+    CREATED_AT: datetime
+    # Note: IMAGE_DATA can be excluded from response to reduce payload size
+    # or included optionally via query parameter
