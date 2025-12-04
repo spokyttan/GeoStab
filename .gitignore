@@ -57,6 +57,11 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+.pytest_cache/
+
+# Logs
+*.log
+api.log
 
 # Translations
 *.mo
