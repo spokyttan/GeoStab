@@ -386,4 +386,69 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isRisk) statusBadge.style.color = "#10B981";
         }
     }
+
+    // ============================================
+    // DISCONTINUITY MANAGEMENT
+    // ============================================
+
+    let discontinuityCount = 2; // Empezamos con 2 (las 2 que vienen por defecto)
+
+    // Botón "+ Añadir" para agregar discontinuidades
+    const btnAddDisc = document.querySelector('.btn-add-modern');
+    if (btnAddDisc) {
+        btnAddDisc.addEventListener('click', () => {
+            discontinuityCount++;
+            const discList = document.querySelector('.discontinuity-list');
+
+            const newDisc = document.createElement('div');
+            newDisc.className = 'disc-item';
+            newDisc.innerHTML = `
+                <span class="disc-badge">${discontinuityCount}</span>
+                <input type="number" placeholder="Buz." value="">
+                <input type="number" placeholder="Dir." value="">
+                <button class="btn-icon-modern camera">📷</button>
+                <button class="btn-icon-modern delete">🗑️</button>
+            `;
+
+            discList.appendChild(newDisc);
+
+            // Agregar event listener al nuevo botón de eliminar
+            const newDeleteBtn = newDisc.querySelector('.btn-icon-modern.delete');
+            newDeleteBtn.addEventListener('click', () => {
+                newDisc.remove();
+                reorderDiscontinuities();
+            });
+
+            console.log('Discontinuidad agregada');
+        });
+    }
+
+    // Event listeners para los botones de eliminar existentes
+    function attachDeleteListeners() {
+        const deleteButtons = document.querySelectorAll('.btn-icon-modern.delete');
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const discItem = e.target.closest('.disc-item');
+                if (discItem) {
+                    discItem.remove();
+                    reorderDiscontinuities();
+                }
+            });
+        });
+    }
+
+    // Función para reordenar los badges después de eliminar
+    function reorderDiscontinuities() {
+        const discItems = document.querySelectorAll('.disc-item');
+        discItems.forEach((item, index) => {
+            const badge = item.querySelector('.disc-badge');
+            if (badge) {
+                badge.textContent = index + 1;
+            }
+        });
+        discontinuityCount = discItems.length;
+    }
+
+    // Inicializar event listeners para los botones existentes
+    attachDeleteListeners();
 });
