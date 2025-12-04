@@ -134,6 +134,10 @@ async function openSensorModal(sensorManager) {
             const photo = await sensorManager.capturePhoto();
             if (photo) {
                 sensorManager.addPhotoToGallery(photo);
+
+                // Save photo to backend API
+                await savePhotoToBackend(photo);
+
                 btnCapture.textContent = '✅ Foto Capturada!';
                 setTimeout(() => {
                     btnCapture.textContent = '📸 Capturar Foto';
@@ -142,6 +146,129 @@ async function openSensorModal(sensorManager) {
         };
     }
 }
+
+// Save photo to backend API (with offline queue support)
+async function savePhotoToBackend(photo) {
+    // Get session ID and project ID
+    const sessionId = localStorage.getItem('geostab_session_id');
+    const currentProjectId = parseInt(localStorage.getItem('current_project_id') || '0');
+
+    if (!currentProjectId) {
+        console.warn('⚠️ No project ID set. Photo saved locally only.');
+        addPhotoToOfflineQueue(photo);
+        return;
+    }
+
+    // Prepare API payload
+    const photoData = {
+        project_id: currentProjectId,
+        discontinuity_index: photo.discontinuityIndex,
+        image_data: photo.imageData,
+        dip: photo.dip,
+        dip_direction: photo.dipDirection,
+        latitude: photo.location.lat,
+        longitude: photo.location.lon,
+        gps_accuracy: photo.location.accuracy,
+        captured_at: photo.timestamp,
+        session_id: sessionId
+    };
+
+    try {
+        const response = await fetch('/api/photos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Session-ID': sessionId
+            },
+            body: JSON.stringify(photoData)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Photo saved to backend:', result.photo_id);
+            // Optionally update photo object with server ID
+            photo.serverId = result.photo_id;
+        } else {
+            console.error('❌ Failed to save photo:', response.status);
+            addPhotoToOfflineQueue(photo);
+        }
+    } catch (error) {
+        console.error('❌ Error saving photo to backend:', error);
+        // Add to offline queue for later sync
+        addPhotoToOfflineQueue(photo);
+    }
+}
+
+// Add photo to offline queue for later synchronization
+function addPhotoToOfflineQueue(photo) {
+    const queue = JSON.parse(localStorage.getItem('photo_sync_queue') || '[]');
+    queue.push(photo);
+    localStorage.setItem('photo_sync_queue', JSON.stringify(queue));
+    console.log('📥 Photo added to offline queue for later sync');
+}
+
+// Process offline queue (call this when connection is restored)
+async function processOfflineQueue() {
+    const queue = JSON.parse(localStorage.getItem('photo_sync_queue') || '[]');
+
+    if (queue.length === 0) {
+        console.log('📭 Offline queue is empty');
+        return;
+    }
+
+    console.log(`📤 Processing ${queue.length} queued photos...`);
+    const sessionId = localStorage.getItem('geostab_session_id');
+    let successCount = 0;
+    const failedPhotos = [];
+
+    for (const photo of queue) {
+        try {
+            const photoData = {
+                project_id: parseInt(localStorage.getItem('current_project_id') || '0'),
+                discontinuity_index: photo.discontinuityIndex,
+                image_data: photo.imageData,
+                dip: photo.dip,
+                dip_direction: photo.dipDirection,
+                latitude: photo.location.lat,
+                longitude: photo.location.lon,
+                gps_accuracy: photo.location.accuracy,
+                captured_at: photo.timestamp,
+                session_id: sessionId
+            };
+
+            const response = await fetch('/api/photos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-ID': sessionId
+                },
+                body: JSON.stringify(photoData)
+            });
+
+            if (response.ok) {
+                successCount++;
+                console.log(`✅ Synced photo ${photo.id}`);
+            } else {
+                failedPhotos.push(photo);
+            }
+        } catch (error) {
+            failedPhotos.push(photo);
+            console.error('❌ Failed to sync photo:', error);
+        }
+    }
+
+    // Update queue with only failed photos
+    localStorage.setItem('photo_sync_queue', JSON.stringify(failedPhotos));
+    console.log(`✅ Synced ${successCount} photos. ${failedPhotos.length} remaining in queue.`);
+}
+
+// Auto-sync when connection is restored
+window.addEventListener('online', () => {
+    console.log('🌐 Connection restored. Processing offline queue...');
+    setTimeout(() => {
+        processOfflineQueue();
+    }, 1000);
+});
 
 function closeSensorModal(sensorManager) {
     const modal = document.getElementById('sensor-modal');
