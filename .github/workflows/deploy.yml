@@ -1,8 +1,9 @@
 name: Build and Push Docker Images
 
 on:
-  push:
-    branches: [ "main" ]
+  # Deshabilitado - usando despliegue directo por SSH
+  # push:
+  #   branches: [ "main" ]
   workflow_dispatch:
 
 env:
