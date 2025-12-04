@@ -1,9 +1,8 @@
 name: Build and Push Docker Images
 
 on:
-  # Deshabilitado temporalmente - no usamos GitHub Container Registry
-  # push:
-  #   branches: [ "main" ]
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
 
 env:
@@ -34,7 +33,9 @@ jobs:
           context: .
           file: Dockerfile.api
           push: true
-          tags: ${{ env.REGISTRY }}/spokyttan/geostab-api:latest
+          tags: |
+            ${{ env.REGISTRY }}/spokyttan/geostab-api:latest
+            ${{ env.REGISTRY }}/spokyttan/geostab-api:${{ github.sha }}
 
       - name: Build and push UI image
         uses: docker/build-push-action@v5
@@ -42,4 +43,6 @@ jobs:
           context: .
           file: Dockerfile.ui
           push: true
-          tags: ${{ env.REGISTRY }}/spokyttan/geostab-ui:latest
+          tags: |
+            ${{ env.REGISTRY }}/spokyttan/geostab-ui:latest
+            ${{ env.REGISTRY }}/spokyttan/geostab-ui:${{ github.sha }}
