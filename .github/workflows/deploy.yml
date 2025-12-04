@@ -34,7 +34,7 @@ jobs:
           context: .
           file: Dockerfile.api
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api:latest
+          tags: ${{ env.REGISTRY }}/spokyttan/geostab-api:latest
 
       - name: Build and push UI image
         uses: docker/build-push-action@v5
@@ -42,4 +42,4 @@ jobs:
           context: .
           file: Dockerfile.ui
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-ui:latest
+          tags: ${{ env.REGISTRY }}/spokyttan/geostab-ui:latest
