@@ -295,33 +295,37 @@ def delete_measurement(measurement_id: int) -> Dict[str, Any]:
 # GESTIÓN DE PROYECTOS
 # =============================================================================
 
-def create_project(name: str, description: Optional[str] = None) -> Dict[str, Any]:
+def create_project(name: str, description: Optional[str] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
     """
     Crea un nuevo proyecto.
     """
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            query = "INSERT INTO PROJECTS (NAME, DESCRIPTION, CREATED_AT, UPDATED_AT) VALUES (%s, %s, %s, %s)"
+            query = "INSERT INTO PROJECTS (NAME, DESCRIPTION, CREATED_AT, UPDATED_AT, SESSION_ID) VALUES (%s, %s, %s, %s, %s)"
             now = datetime.now()
-            cursor.execute(query, (name, description, now, now))
+            cursor.execute(query, (name, description, now, now, session_id))
             conn.commit()
             project_id = cursor.lastrowid
-            print(f"✅ Proyecto creado con ID: {project_id}")
+            print(f"✅ Proyecto creado con ID: {project_id} (Sesión: {session_id})")
             return {"success": True, "project_id": project_id, "message": f"Proyecto '{name}' creado"}
     except Exception as e:
         print(f"❌ Error al crear proyecto: {e}")
         raise
 
-def get_projects(limit: int = 50) -> list:
+def get_projects(limit: int = 50, session_id: Optional[str] = None) -> list:
     """
-    Obtiene lista de proyectos.
+    Obtiene lista de proyectos, opcionalmente filtrados por SESSION_ID.
     """
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor(dictionary=True)
-            query = "SELECT * FROM PROJECTS ORDER BY UPDATED_AT DESC LIMIT %s"
-            cursor.execute(query, (limit,))
+            if session_id:
+                query = "SELECT * FROM PROJECTS WHERE SESSION_ID = %s ORDER BY UPDATED_AT DESC LIMIT %s"
+                cursor.execute(query, (session_id, limit))
+            else:
+                query = "SELECT * FROM PROJECTS ORDER BY UPDATED_AT DESC LIMIT %s"
+                cursor.execute(query, (limit,))
             return cursor.fetchall()
     except Exception as e:
         print(f"❌ Error al obtener proyectos: {e}")

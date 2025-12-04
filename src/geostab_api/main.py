@@ -88,19 +88,22 @@ def analyze_planar(request: models.PlanarAnalysisRequest):
 # ENDPOINTS DE PROYECTOS (Sprint 3)
 # =============================================================================
 
-@app.post("/projects", response_model=dict, status_code=201)
-def create_project(project: models.ProjectCreate):
+@app.post("/projects")
+def create_new_project(request: Request, project: models.ProjectCreate):
     """Crea un nuevo proyecto."""
     try:
-        return queries.create_project(project.name, project.description)
+        session_id = request.headers.get("X-Session-ID")
+        result = queries.create_project(project.name, project.description, session_id=session_id)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/projects", response_model=List[models.ProjectResponse])
-def list_projects(limit: int = 50):
-    """Lista los últimos proyectos."""
+@app.get("/projects")
+def list_projects(request: Request, limit: int = 50):
+    """Lista los últimos proyectos filtrados por sesión."""
     try:
-        return queries.get_projects(limit)
+        session_id = request.headers.get("X-Session-ID")
+        return queries.get_projects(limit, session_id=session_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

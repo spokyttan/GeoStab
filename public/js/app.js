@@ -6,6 +6,32 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('GeoStab App Initialized');
 
+    // ============================================
+    // SESSION MANAGEMENT (Anonymous UUID)
+    // ============================================
+
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    function getSessionId() {
+        let sessionId = localStorage.getItem('geostab_session_id');
+        if (!sessionId) {
+            sessionId = generateUUID();
+            localStorage.setItem('geostab_session_id', sessionId);
+            console.log('🆔 Nueva sesión creada:', sessionId);
+        } else {
+            console.log('🆔 Sesión existente:', sessionId);
+        }
+        return sessionId;
+    }
+
+    const SESSION_ID = getSessionId();
+
     // Referencias al DOM
     const btnAnalyze = document.querySelector('.btn-hero-primary'); // Botón "Ver Demo" -> Scroll
     const btnAnalyzeAction = document.querySelector('.btn-modern.primary'); // Botón Guardar (Simulado)
@@ -63,7 +89,11 @@ document.addEventListener('DOMContentLoaded', () => {
         list.innerHTML = '<li style="color: var(--text-muted);">Cargando...</li>';
 
         try {
-            const res = await fetch(`${API_BASE_URL}/projects`);
+            const res = await fetch(`${API_BASE_URL}/projects`, {
+                headers: {
+                    'X-Session-ID': SESSION_ID
+                }
+            });
             if (!res.ok) throw new Error('Error al cargar proyectos');
             const projects = await res.json();
 
@@ -121,7 +151,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const res = await fetch(`${API_BASE_URL}/projects`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-ID': SESSION_ID
+                    },
                     body: JSON.stringify({ name: projectName, description: "Creado desde App" })
                 });
 
