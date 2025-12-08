@@ -528,17 +528,38 @@ function getAnalysisData() {
 /**
  * Actualiza la sección de resultados para falla planar
  */
-function updatePlanarResult(result) {
-    const planarSection = document.querySelector('.accordion-item:first-child');
-    if (!planarSection) return;
+function updatePlanarResult(result, data) {
+    // Actualizar valores en la tabla
+    const buzEl = document.getElementById('planar-buz');
+    const dirEl = document.getElementById('planar-dir');
+    const statusEl = document.getElementById('planar-status');
+    const badgeEl = document.getElementById('planar-badge');
 
-    const badge = planarSection.querySelector('.status-badge');
-    if (badge) {
-        badge.textContent = result.risk_detected ? '1 riesgo' : '0 riesgos';
-        badge.className = result.risk_detected ? 'status-badge danger' : 'status-badge success';
+    if (buzEl && data) buzEl.textContent = data.f1.manteo;
+    if (dirEl && data) dirEl.textContent = data.f1.rumbo;
+
+    if (result.risk_detected) {
+        if (statusEl) statusEl.innerHTML = '<span class="danger-text">⚠️ Inestable</span>';
+        if (badgeEl) {
+            badgeEl.textContent = '⚠️ Inestable - Acción Requerida';
+            badgeEl.className = 'status-badge danger';
+        }
+    } else {
+        if (statusEl) statusEl.innerHTML = '<span class="success-text">✅ Estable</span>';
+        if (badgeEl) {
+            badgeEl.textContent = '✅ Estable';
+            badgeEl.className = 'status-badge success';
+        }
     }
 
-    // Actualizar alerta principal si hay riesgo
+    // Actualizar badge del header
+    const headerBadge = document.querySelector('.accordion-item:first-child .badge-warning, .accordion-item:first-child .badge-success');
+    if (headerBadge) {
+        headerBadge.textContent = result.risk_detected ? '1 riesgo' : '0 riesgos';
+        headerBadge.className = result.risk_detected ? 'badge-warning' : 'badge-success';
+    }
+
+    // Actualizar alerta principal
     updateMainAlert(result, 'Falla Planar');
 }
 
@@ -601,7 +622,7 @@ function runAutoAnalysis() {
     // Análisis Planar (siempre si hay F1)
     try {
         const planarResult = window.MathEngine.analyzePlanar(data.talud, data.f1, data.friccion);
-        updatePlanarResult(planarResult);
+        updatePlanarResult(planarResult, data);
         console.log('📊 Análisis Planar:', planarResult.risk_detected ? 'RIESGO' : 'Estable');
     } catch (e) {
         console.error('Error en análisis planar:', e);

@@ -2007,11 +2007,11 @@
           <div class="input-grid-demo">
             <div class="control-group">
               <label>Buzamiento (°)</label>
-              <input type="number" value="45" class="input-modern">
+              <input type="number" value="0" class="input-modern">
             </div>
             <div class="control-group">
               <label>Dirección (°)</label>
-              <input type="number" value="180" class="input-modern">
+              <input type="number" value="0" class="input-modern">
             </div>
           </div>
 
@@ -2032,8 +2032,8 @@
             <!-- Item 1 -->
             <div class="disc-item">
               <span class="disc-badge">1</span>
-              <input type="number" placeholder="Buz." value="35">
-              <input type="number" placeholder="Dir." value="170">
+              <input type="number" placeholder="Buz." value="0">
+              <input type="number" placeholder="Dir." value="0">
               <button class="btn-icon-modern camera">📷</button>
               <button class="btn-icon-modern delete">🗑️</button>
             </div>
@@ -2041,8 +2041,8 @@
             <!-- Item 2 -->
             <div class="disc-item">
               <span class="disc-badge">2</span>
-              <input type="number" placeholder="Buz." value="60">
-              <input type="number" placeholder="Dir." value="220">
+              <input type="number" placeholder="Buz." value="0">
+              <input type="number" placeholder="Dir." value="0">
               <button class="btn-icon-modern camera">📷</button>
               <button class="btn-icon-modern delete">🗑️</button>
             </div>
@@ -2074,12 +2074,12 @@
               <div class="accordion-content">
                 <div class="result-details">
                   <p><strong>Discontinuidad 1</strong></p>
-                  <ul class="result-list">
-                    <li>Buzamiento: 35°</li>
-                    <li>Dir. Buzamiento: 170°</li>
-                    <li>Factor de Seguridad: <span class="danger-text">0.87</span></li>
+                  <ul class="result-list" id="planar-result-list">
+                    <li>Buzamiento: <span id="planar-buz">--</span>°</li>
+                    <li>Dir. Buzamiento: <span id="planar-dir">--</span>°</li>
+                    <li>Estado: <span id="planar-status">Sin datos</span></li>
                   </ul>
-                  <div class="status-badge danger">⚠️ Inestable - Acción Requerida</div>
+                  <div class="status-badge" id="planar-badge">Ingrese datos</div>
                 </div>
               </div>
             </div>
