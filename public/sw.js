@@ -1,5 +1,5 @@
-const CACHE_NAME = 'geostab-v2';
-const ASSETS = [
+const CACHE_NAME = 'geostab-v3';
+const urlsToCache = [
     './',
     './index.html',
     './css/style.css',
