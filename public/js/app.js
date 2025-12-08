@@ -502,11 +502,28 @@ function debounce(func, wait) {
 }
 
 /**
- * Obtiene datos de los inputs
+ * Obtiene datos de los inputs - TODAS las discontinuidades
  */
 function getAnalysisData() {
     const inputs = document.querySelectorAll('.input-modern');
-    const discInputs = document.querySelectorAll('.disc-item input');
+    const discItems = document.querySelectorAll('.disc-item');
+
+    // Obtener todas las discontinuidades
+    const discontinuidades = [];
+    discItems.forEach((item, index) => {
+        const itemInputs = item.querySelectorAll('input');
+        const manteo = parseFloat(itemInputs[0]?.value) || 0;
+        const rumbo = parseFloat(itemInputs[1]?.value) || 0;
+
+        // Solo agregar si tiene valores
+        if (manteo > 0 || rumbo > 0) {
+            discontinuidades.push({
+                id: index + 1,
+                manteo: manteo,
+                rumbo: rumbo
+            });
+        }
+    });
 
     return {
         talud: {
@@ -514,14 +531,7 @@ function getAnalysisData() {
             rumbo: parseFloat(inputs[2]?.value) || 0
         },
         friccion: parseFloat(inputs[3]?.value) || 30,
-        f1: {
-            manteo: parseFloat(discInputs[0]?.value) || 0,
-            rumbo: parseFloat(discInputs[1]?.value) || 0
-        },
-        f2: {
-            manteo: parseFloat(discInputs[2]?.value) || 0,
-            rumbo: parseFloat(discInputs[3]?.value) || 0
-        }
+        discontinuidades: discontinuidades
     };
 }
 
@@ -602,7 +612,7 @@ function updateMainAlert(result, type) {
 }
 
 /**
- * Ejecuta ambos análisis automáticamente
+ * Ejecuta análisis completo para N discontinuidades
  */
 function runAutoAnalysis() {
     if (!window.MathEngine) {
@@ -611,32 +621,145 @@ function runAutoAnalysis() {
     }
 
     const data = getAnalysisData();
+    const { talud, friccion, discontinuidades } = data;
 
-    // Solo analizar si hay datos mínimos (talud y al menos 1 discontinuidad)
-    const hasTalud = data.talud.manteo > 0 || data.talud.rumbo > 0;
-    const hasF1 = data.f1.manteo > 0 || data.f1.rumbo > 0;
-    const hasF2 = data.f2.manteo > 0 || data.f2.rumbo > 0;
-
-    if (!hasTalud || !hasF1) return;
-
-    // Análisis Planar (siempre si hay F1)
-    try {
-        const planarResult = window.MathEngine.analyzePlanar(data.talud, data.f1, data.friccion);
-        updatePlanarResult(planarResult, data);
-        console.log('📊 Análisis Planar:', planarResult.risk_detected ? 'RIESGO' : 'Estable');
-    } catch (e) {
-        console.error('Error en análisis planar:', e);
+    // Solo analizar si hay datos mínimos
+    const hasTalud = talud.manteo > 0 || talud.rumbo > 0;
+    if (!hasTalud || discontinuidades.length === 0) {
+        clearResults();
+        return;
     }
 
-    // Análisis Cuña (solo si hay F1 y F2)
-    if (hasF2) {
+    // Arrays para almacenar resultados
+    const planarResults = [];
+    const wedgeResults = [];
+
+    // Análisis Planar: Para cada discontinuidad
+    discontinuidades.forEach((disc, i) => {
         try {
-            const wedgeResult = window.MathEngine.analyzeWedge(data.talud, data.f1, data.f2, data.friccion);
-            updateWedgeResult(wedgeResult);
-            console.log('📊 Análisis Cuña:', wedgeResult.risk_detected ? 'RIESGO' : 'Estable');
+            const result = window.MathEngine.analyzePlanar(talud, disc, friccion);
+            planarResults.push({
+                discId: disc.id,
+                disc: disc,
+                result: result
+            });
+            console.log(`📊 Planar D${disc.id}:`, result.risk_detected ? 'RIESGO' : 'Estable');
         } catch (e) {
-            console.error('Error en análisis cuña:', e);
+            console.error(`Error en análisis planar D${disc.id}:`, e);
         }
+    });
+
+    // Análisis Cuña: Para cada par de discontinuidades
+    for (let i = 0; i < discontinuidades.length; i++) {
+        for (let j = i + 1; j < discontinuidades.length; j++) {
+            try {
+                const d1 = discontinuidades[i];
+                const d2 = discontinuidades[j];
+                const result = window.MathEngine.analyzeWedge(talud, d1, d2, friccion);
+                wedgeResults.push({
+                    disc1Id: d1.id,
+                    disc2Id: d2.id,
+                    disc1: d1,
+                    disc2: d2,
+                    result: result
+                });
+                console.log(`📊 Cuña D${d1.id}+D${d2.id}:`, result.risk_detected ? 'RIESGO' : 'Estable');
+            } catch (e) {
+                console.error(`Error en análisis cuña D${discontinuidades[i].id}+D${discontinuidades[j].id}:`, e);
+            }
+        }
+    }
+
+    // Actualizar UI con todos los resultados
+    updateAllResults(planarResults, wedgeResults);
+}
+
+/**
+ * Limpia los resultados cuando no hay datos
+ */
+function clearResults() {
+    const planarContent = document.getElementById('planar-results-content');
+    const wedgeContent = document.getElementById('wedge-results-content');
+
+    if (planarContent) planarContent.innerHTML = '<p class="no-data">Ingrese datos del talud y discontinuidades</p>';
+    if (wedgeContent) wedgeContent.innerHTML = '<p class="no-data">Se requieren 2+ discontinuidades</p>';
+
+    updateMainAlert({ risk_detected: false }, 'Sin análisis');
+}
+
+/**
+ * Actualiza toda la UI con los resultados
+ */
+function updateAllResults(planarResults, wedgeResults) {
+    // Contar riesgos
+    const planarRisks = planarResults.filter(r => r.result.risk_detected).length;
+    const wedgeRisks = wedgeResults.filter(r => r.result.risk_detected).length;
+    const totalRisks = planarRisks + wedgeRisks;
+
+    // Actualizar sección Planar
+    const planarContent = document.getElementById('planar-results-content');
+    if (planarContent) {
+        if (planarResults.length === 0) {
+            planarContent.innerHTML = '<p class="no-data">Sin discontinuidades</p>';
+        } else {
+            let html = '';
+            planarResults.forEach(pr => {
+                const statusClass = pr.result.risk_detected ? 'danger' : 'success';
+                const statusIcon = pr.result.risk_detected ? '⚠️' : '✅';
+                const statusText = pr.result.risk_detected ? 'Inestable' : 'Estable';
+                html += `
+                    <div class="result-item ${statusClass}">
+                        <strong>Discontinuidad ${pr.discId}</strong>
+                        <span>Buz: ${pr.disc.manteo}° | Dir: ${pr.disc.rumbo}°</span>
+                        <span class="status">${statusIcon} ${statusText}</span>
+                    </div>
+                `;
+            });
+            planarContent.innerHTML = html;
+        }
+    }
+
+    // Actualizar badge planar
+    const planarBadge = document.querySelector('.accordion-item:first-child .badge-warning, .accordion-item:first-child .badge-success');
+    if (planarBadge) {
+        planarBadge.textContent = planarRisks > 0 ? `${planarRisks} riesgo${planarRisks > 1 ? 's' : ''}` : '0 riesgos';
+        planarBadge.className = planarRisks > 0 ? 'badge-warning' : 'badge-success';
+    }
+
+    // Actualizar sección Cuña
+    const wedgeContent = document.getElementById('wedge-results-content');
+    if (wedgeContent) {
+        if (wedgeResults.length === 0) {
+            wedgeContent.innerHTML = '<p class="no-data">Se requieren 2+ discontinuidades</p>';
+        } else {
+            let html = '';
+            wedgeResults.forEach(wr => {
+                const statusClass = wr.result.risk_detected ? 'danger' : 'success';
+                const statusIcon = wr.result.risk_detected ? '⚠️' : '✅';
+                const statusText = wr.result.risk_detected ? 'Inestable' : 'Estable';
+                html += `
+                    <div class="result-item ${statusClass}">
+                        <strong>Cuña D${wr.disc1Id} + D${wr.disc2Id}</strong>
+                        <span class="status">${statusIcon} ${statusText}</span>
+                    </div>
+                `;
+            });
+            wedgeContent.innerHTML = html;
+        }
+    }
+
+    // Actualizar badge cuña
+    const wedgeBadge = document.querySelector('.accordion-item:last-child .badge-warning, .accordion-item:last-child .badge-success');
+    if (wedgeBadge) {
+        wedgeBadge.textContent = wedgeRisks > 0 ? `${wedgeRisks} riesgo${wedgeRisks > 1 ? 's' : ''}` : '0 riesgos';
+        wedgeBadge.className = wedgeRisks > 0 ? 'badge-warning' : 'badge-success';
+    }
+
+    // Actualizar alerta principal
+    if (totalRisks > 0) {
+        updateMainAlert({ risk_detected: true }, `${totalRisks} condición${totalRisks > 1 ? 'es' : ''} de riesgo`);
+    } else {
+        updateMainAlert({ risk_detected: false }, 'Análisis completo');
     }
 }
 

@@ -946,6 +946,49 @@
       margin-bottom: var(--spacing-xs);
     }
 
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.03);
+      border-left: 3px solid var(--text-muted);
+    }
+
+    .result-item.danger {
+      border-left-color: var(--danger);
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .result-item.success {
+      border-left-color: var(--success);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .result-item strong {
+      color: var(--text-primary);
+    }
+
+    .result-item .status {
+      font-weight: 600;
+    }
+
+    .no-data {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 16px;
+    }
+
+    .success-text {
+      color: var(--success);
+      font-weight: 600;
+    }
+
     .result-list {
       margin: var(--spacing-sm) 0;
       padding-left: var(--spacing-md);
@@ -2064,30 +2107,29 @@
             </div>
           </div>
 
-          <!-- Acordeón de resultados (estático en HTML; para abrir/cerrar se requiere JS) -->
+          <!-- Acordeón de resultados dinámico -->
           <div class="result-accordion">
             <div class="accordion-item">
               <div class="accordion-header">
                 <strong>Análisis de Falla Planar</strong>
-                <span class="badge-warning">1 riesgo</span>
+                <span class="badge-success">0 riesgos</span>
               </div>
               <div class="accordion-content">
-                <div class="result-details">
-                  <p><strong>Discontinuidad 1</strong></p>
-                  <ul class="result-list" id="planar-result-list">
-                    <li>Buzamiento: <span id="planar-buz">--</span>°</li>
-                    <li>Dir. Buzamiento: <span id="planar-dir">--</span>°</li>
-                    <li>Estado: <span id="planar-status">Sin datos</span></li>
-                  </ul>
-                  <div class="status-badge" id="planar-badge">Ingrese datos</div>
+                <div class="result-details" id="planar-results-content">
+                  <p class="no-data">Ingrese datos del talud y discontinuidades</p>
                 </div>
               </div>
             </div>
 
-            <div class="accordion-item collapsed">
+            <div class="accordion-item">
               <div class="accordion-header">
                 <strong>Análisis de Falla en Cuña</strong>
                 <span class="badge-success">0 riesgos</span>
+              </div>
+              <div class="accordion-content">
+                <div class="result-details" id="wedge-results-content">
+                  <p class="no-data">Se requieren 2+ discontinuidades</p>
+                </div>
               </div>
             </div>
           </div>
