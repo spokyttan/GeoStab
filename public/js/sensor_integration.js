@@ -43,6 +43,26 @@ function createSensorModal() {
                 <div style="width: 100%; background: #000; border-radius: 8px; overflow: hidden; margin-bottom: 20px; position: relative;">
                     <video id="camera-preview" autoplay playsinline style="width: 100%; display: block; max-height: 400px; object-fit: cover;"></video>
                     <canvas id="camera-canvas" style="display: none;"></canvas>
+                    
+                    <!-- SVG Guide Overlay -->
+                    <svg id="camera-guide" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;">
+                        <!-- Horizontal reference line (for dip alignment) -->
+                        <line x1="10%" y1="50%" x2="90%" y2="50%" 
+                              stroke="#FF6B35" stroke-width="2" stroke-dasharray="5,5" opacity="0.7"/>
+                        
+                        <!-- Center crosshair -->
+                        <line x1="45%" y1="50%" x2="55%" y2="50%" 
+                              stroke="#FFB830" stroke-width="3" opacity="0.9"/>
+                        <line x1="50%" y1="45%" x2="50%" y2="55%" 
+                              stroke="#FFB830" stroke-width="3" opacity="0.9"/>
+                        
+                        <!-- Instructional text -->
+                        <text x="50%" y="15%" text-anchor="middle" fill="white" font-size="12" font-weight="bold" 
+                              style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">
+                            Alinea el plano con la línea horizontal
+                        </text>
+                    </svg>
+                    
                     <div id="camera-error" style="display: none; padding: 40px; color: var(--danger); text-align: center;">
                         ⚠️ No se pudo acceder a la cámara
                     </div>
