@@ -485,3 +485,172 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicializar event listeners para los botones existentes
     attachDeleteListeners();
 });
+
+// ========================================
+// AUTO-ANÁLISIS EN CAMBIO DE INPUTS
+// ========================================
+
+/**
+ * Debounce helper - evita ejecutar demasiadas veces
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+/**
+ * Obtiene datos de los inputs
+ */
+function getAnalysisData() {
+    const inputs = document.querySelectorAll('.input-modern');
+    const discInputs = document.querySelectorAll('.disc-item input');
+
+    return {
+        talud: {
+            manteo: parseFloat(inputs[1]?.value) || 0,
+            rumbo: parseFloat(inputs[2]?.value) || 0
+        },
+        friccion: parseFloat(inputs[3]?.value) || 30,
+        f1: {
+            manteo: parseFloat(discInputs[0]?.value) || 0,
+            rumbo: parseFloat(discInputs[1]?.value) || 0
+        },
+        f2: {
+            manteo: parseFloat(discInputs[2]?.value) || 0,
+            rumbo: parseFloat(discInputs[3]?.value) || 0
+        }
+    };
+}
+
+/**
+ * Actualiza la sección de resultados para falla planar
+ */
+function updatePlanarResult(result) {
+    const planarSection = document.querySelector('.accordion-item:first-child');
+    if (!planarSection) return;
+
+    const badge = planarSection.querySelector('.status-badge');
+    if (badge) {
+        badge.textContent = result.risk_detected ? '1 riesgo' : '0 riesgos';
+        badge.className = result.risk_detected ? 'status-badge danger' : 'status-badge success';
+    }
+
+    // Actualizar alerta principal si hay riesgo
+    updateMainAlert(result, 'Falla Planar');
+}
+
+/**
+ * Actualiza la sección de resultados para falla en cuña
+ */
+function updateWedgeResult(result) {
+    const wedgeSection = document.querySelector('.accordion-item:last-child');
+    if (!wedgeSection) return;
+
+    const badge = wedgeSection.querySelector('.status-badge');
+    if (badge) {
+        badge.textContent = result.risk_detected ? '1 riesgo' : '0 riesgos';
+        badge.className = result.risk_detected ? 'status-badge danger' : 'status-badge success';
+    }
+}
+
+/**
+ * Actualiza la alerta principal
+ */
+function updateMainAlert(result, type) {
+    const alertCard = document.querySelector('.alert-card');
+    if (!alertCard) return;
+
+    const icon = alertCard.querySelector('.alert-icon-wrapper');
+    const title = alertCard.querySelector('.alert-text h4');
+    const msg = alertCard.querySelector('.alert-text p');
+
+    if (result.risk_detected) {
+        alertCard.className = 'alert-card warning';
+        if (icon) icon.textContent = '⚠️';
+        if (title) title.textContent = 'Riesgo Detectado';
+        if (msg) msg.textContent = `Se identificó potencial deslizamiento en ${type}`;
+    } else {
+        alertCard.className = 'alert-card success';
+        if (icon) icon.textContent = '✅';
+        if (title) title.textContent = 'Sin Riesgos';
+        if (msg) msg.textContent = 'No se detectaron condiciones de falla';
+    }
+}
+
+/**
+ * Ejecuta ambos análisis automáticamente
+ */
+function runAutoAnalysis() {
+    if (!window.MathEngine) {
+        console.warn('MathEngine no disponible');
+        return;
+    }
+
+    const data = getAnalysisData();
+
+    // Solo analizar si hay datos mínimos (talud y al menos 1 discontinuidad)
+    const hasTalud = data.talud.manteo > 0 || data.talud.rumbo > 0;
+    const hasF1 = data.f1.manteo > 0 || data.f1.rumbo > 0;
+    const hasF2 = data.f2.manteo > 0 || data.f2.rumbo > 0;
+
+    if (!hasTalud || !hasF1) return;
+
+    // Análisis Planar (siempre si hay F1)
+    try {
+        const planarResult = window.MathEngine.analyzePlanar(data.talud, data.f1, data.friccion);
+        updatePlanarResult(planarResult);
+        console.log('📊 Análisis Planar:', planarResult.risk_detected ? 'RIESGO' : 'Estable');
+    } catch (e) {
+        console.error('Error en análisis planar:', e);
+    }
+
+    // Análisis Cuña (solo si hay F1 y F2)
+    if (hasF2) {
+        try {
+            const wedgeResult = window.MathEngine.analyzeWedge(data.talud, data.f1, data.f2, data.friccion);
+            updateWedgeResult(wedgeResult);
+            console.log('📊 Análisis Cuña:', wedgeResult.risk_detected ? 'RIESGO' : 'Estable');
+        } catch (e) {
+            console.error('Error en análisis cuña:', e);
+        }
+    }
+}
+
+// Inicializar event listeners para auto-análisis
+const debouncedAnalysis = debounce(runAutoAnalysis, 300);
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Esperar a que los inputs existan
+    setTimeout(() => {
+        // Event listeners en todos los inputs
+        document.querySelectorAll('.input-modern').forEach(input => {
+            input.addEventListener('change', runAutoAnalysis);
+            input.addEventListener('input', debouncedAnalysis);
+        });
+
+        // Observer para nuevas discontinuidades agregadas dinámicamente
+        const discList = document.querySelector('.discontinuity-list');
+        if (discList) {
+            const observer = new MutationObserver(() => {
+                document.querySelectorAll('.disc-item input').forEach(input => {
+                    input.removeEventListener('change', runAutoAnalysis);
+                    input.removeEventListener('input', debouncedAnalysis);
+                    input.addEventListener('change', runAutoAnalysis);
+                    input.addEventListener('input', debouncedAnalysis);
+                });
+            });
+            observer.observe(discList, { childList: true, subtree: true });
+        }
+
+        // Attach listeners a discontinuidades existentes
+        document.querySelectorAll('.disc-item input').forEach(input => {
+            input.addEventListener('change', runAutoAnalysis);
+            input.addEventListener('input', debouncedAnalysis);
+        });
+
+        console.log('✅ Auto-análisis inicializado');
+    }, 500);
+});
