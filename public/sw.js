@@ -1,5 +1,5 @@
-const CACHE_NAME = 'geostab-v3';
-const urlsToCache = [
+const CACHE_NAME = 'geostab-v4';
+const ASSETS = [
     './',
     './index.html',
     './css/style.css',
@@ -24,11 +24,16 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
     e.waitUntil(
         caches.keys().then((keyList) => {
+            // Delete ALL caches, even old geostab ones
             return Promise.all(keyList.map((key) => {
-                if (key !== CACHE_NAME) {
-                    return caches.delete(key);
-                }
+                console.log('Deleting cache:', key);
+                return caches.delete(key);
             }));
+        }).then(() => {
+            // Re-cache everything fresh
+            return caches.open(CACHE_NAME).then((cache) => {
+                return cache.addAll(ASSETS);
+            });
         })
     );
     return self.clients.claim(); // Take control immediately
