@@ -207,60 +207,76 @@ function actualizarUIPlanarV2(result) {
     console.log('[UI] Actualizando UI Planar...');
 
     const alertCard = document.querySelector('.alert-card');
-    const statusMessage = document.querySelector('.status-message');
 
-    if (!alertCard || !statusMessage) {
-        console.warn('[UI] No se encontraron elementos de UI');
+    if (!alertCard) {
+        console.error('[UI] ❌ No se encontró .alert-card');
         return;
     }
 
-    if (result.risk_detected) {
-        alertCard.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))';
-        alertCard.style.borderColor = '#EF4444';
-        statusMessage.innerHTML = `
-            <strong style="color: #EF4444;">⚠️ RIESGO DETECTADO: Falla Planar</strong>
-            <p style="margin-top: 8px; font-size: 0.9rem;">${result.message || 'Se detectaron condiciones de falla'}</p>
-        `;
-    } else {
-        alertCard.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1))';
-        alertCard.style.borderColor = '#10B981';
-        statusMessage.innerHTML = `
-            <strong style="color: #10B981;">✅ ESTABLE: Falla Planar</strong>
-            <p style="margin-top: 8px; font-size: 0.9rem;">No se detectaron condiciones de riesgo</p>
-        `;
+    const alertIcon = alertCard.querySelector('.alert-icon-wrapper');
+    const alertText = alertCard.querySelector('.alert-text');
+
+    if (!alertText) {
+        console.error('[UI] ❌ No se encontró .alert-text dentro de .alert-card');
+        return;
     }
 
-    console.log('[UI] UI Planar actualizada');
+    const h4 = alertText.querySelector('h4');
+    const p = alertText.querySelector('p');
+
+    if (result.risk_detected) {
+        // Estilo de riesgo
+        alertCard.className = 'alert-card warning';
+        if (alertIcon) alertIcon.textContent = '⚠️';
+        if (h4) h4.textContent = 'Riesgo Detectado: Falla Planar';
+        if (p) p.textContent = result.message || 'Se detectaron condiciones de falla planar';
+    } else {
+        // Estilo de estable
+        alertCard.className = 'alert-card success';
+        if (alertIcon) alertIcon.textContent = '✅';
+        if (h4) h4.textContent = 'Estable: Falla Planar';
+        if (p) p.textContent = 'No se detectaron condiciones de riesgo';
+    }
+
+    console.log('[UI] ✅ UI Planar actualizada');
 }
 
 function actualizarUICunaV2(result) {
     console.log('[UI] Actualizando UI Cuña...');
 
     const alertCard = document.querySelector('.alert-card');
-    const statusMessage = document.querySelector('.status-message');
 
-    if (!alertCard || !statusMessage) {
-        console.warn('[UI] No se encontraron elementos de UI');
+    if (!alertCard) {
+        console.error('[UI] ❌ No se encontró .alert-card');
         return;
     }
 
-    if (result.risk_detected) {
-        alertCard.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))';
-        alertCard.style.borderColor = '#EF4444';
-        statusMessage.innerHTML = `
-            <strong style="color: #EF4444;">⚠️ RIESGO DETECTADO: Falla en Cuña</strong>
-            <p style="margin-top: 8px; font-size: 0.9rem;">${result.message || 'Se detectaron condiciones de falla'}</p>
-        `;
-    } else {
-        alertCard.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1))';
-        alertCard.style.borderColor = '#10B981';
-        statusMessage.innerHTML = `
-            <strong style="color: #10B981;">✅ ESTABLE: Falla en Cuña</strong>
-            <p style="margin-top: 8px; font-size: 0.9rem;">${result.message || 'No se detectaron condiciones de riesgo'}</p>
-        `;
+    const alertIcon = alertCard.querySelector('.alert-icon-wrapper');
+    const alertText = alertCard.querySelector('.alert-text');
+
+    if (!alertText) {
+        console.error('[UI] ❌ No se encontró .alert-text dentro de .alert-card');
+        return;
     }
 
-    console.log('[UI] UI Cuña actualizada');
+    const h4 = alertText.querySelector('h4');
+    const p = alertText.querySelector('p');
+
+    if (result.risk_detected) {
+        // Estilo de riesgo
+        alertCard.className = 'alert-card warning';
+        if (alertIcon) alertIcon.textContent = '⚠️';
+        if (h4) h4.textContent = 'Riesgo Detectado: Falla en Cuña';
+        if (p) p.textContent = result.message || 'Se detectaron condiciones de falla en cuña';
+    } else {
+        // Estilo de estable
+        alertCard.className = 'alert-card success';
+        if (alertIcon) alertIcon.textContent = '✅';
+        if (h4) h4.textContent = 'Estable: Falla en Cuña';
+        if (p) p.textContent = 'No se detectaron condiciones de riesgo';
+    }
+
+    console.log('[UI] ✅ UI Cuña actualizada');
 }
 
 function mostrarToastV2(mensaje, tipo = 'info') {
