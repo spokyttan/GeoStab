@@ -486,273 +486,111 @@ document.addEventListener('DOMContentLoaded', () => {
     attachDeleteListeners();
 });
 
-// ============================================
-// FIX: AGREGAR BOTONES DE ANÁLISIS
-// ============================================
-
-// Crear y agregar botones de análisis dinámicamente
-function createAnalysisButtons() {
-    const leftPanel = document.querySelector('.demo-panel.left-panel');
-    if (!leftPanel) {
-        console.warn('Left panel not found');
-        return;
-    }
-
-    // Buscar después de discontinuity-list
-    const discList = leftPanel.querySelector('.discontinuity-list');
-    if (!discList) {
-        console.warn('Discontinuity list not found');
-        return;
-    }
-
-    // Crear sección de botones
-    const analysisSection = document.createElement('div');
-    analysisSection.style.cssText = 'margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);';
-    analysisSection.innerHTML = `
-        <h4 style="color: var(--text); margin-bottom: 15px; font-size: 1rem;">Análisis Cinemático</h4>
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button id="btn-analyze-planar" class="btn-modern primary" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px;">
-                🪨 Analizar Falla Planar
-            </button>
-            <button id="btn-analyze-wedge" class="btn-modern secondary" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px;">
-                🔺 Analizar Falla en Cuña
-            </button>
-        </div>
-    `;
-
-    // Insertar después de la lista de discontinuidades
-    discList.parentNode.insertBefore(analysisSection, discList.nextSibling);
-    console.log('✅ Botones de análisis creados');
-}
 
 // ============================================
-// HELPER FUNCTIONS
+// ANÁLISIS AUTOMÁTICO DE ESTABILIDAD
 // ============================================
 
-function getInputValues() {
+function obtenerDatosAnalisis() {
     const inputs = document.querySelectorAll('.input-modern');
     const discInputs = document.querySelectorAll('.disc-item input');
-    
+
+    const discontinuidades = [];
+    for (let i = 0; i < discInputs.length; i += 2) {
+        if (discInputs[i] && discInputs[i + 1]) {
+            discontinuidades.push({
+                manteo: parseFloat(discInputs[i].value) || 0,
+                rumbo: parseFloat(discInputs[i + 1].value) || 0
+            });
+        }
+    }
+
     return {
         talud: {
-            manteo: parseFloat(inputs[1].value) || 0,
-            rumbo: parseFloat(inputs[2].value) || 0
+            manteo: parseFloat(inputs[1]?.value) || 0,
+            rumbo: parseFloat(inputs[2]?.value) || 0
         },
-        f1: {
-            manteo: parseFloat(discInputs[0].value) || 0,
-            rumbo: parseFloat(discInputs[1].value) || 0
-        },
-        f2: {
-            manteo: parseFloat(discInputs[2].value) || 0,
-            rumbo: parseFloat(discInputs[3].value) || 0
-        },
-        anguloFriccion: parseFloat(inputs[3].value) || 30
+        friccion: parseFloat(inputs[3]?.value) || 30,
+        discontinuidades: discontinuidades
     };
 }
 
-function validateInputs(talud, f1, anguloFriccion, f2 = null) {
-    // Validar talud
-    if (!talud || talud.manteo < 0 || talud.manteo > 90 || talud.rumbo < 0 || talud .rumbo > 360) {
-        showToast('⚠️ Valores de talud inválidos', 'error');
-        return false;
+function validarDatos(datos) {
+    if (!datos.talud || (datos.talud.manteo === 0 && datos.talud.rumbo === 0)) {
+        return { valido: false, error: 'Ingresa parámetros del talud' };
     }
-    
-    // Validar fractura 1
-    if (!f1 || f1.manteo < 0 || f1.manteo > 90 || f1.rumbo < 0 || f1.rumbo > 360) {
-        showToast('⚠️ Valores de discontinuidad 1 inválidos', 'error');
-        return false;
+    if (!datos.discontinuidades || datos.discontinuidades.length === 0) {
+        return { valido: false, error: 'Agrega al menos una discontinuidad' };
     }
-    
-    // Validar fractura 2 si se proporciona
-    if (f2 && (f2.manteo < 0 || f2.manteo > 90 || f2.rumbo < 0 || f2.rumbo > 360)) {
-        showToast('⚠️ Valores de discontinuidad 2 inválidos', 'error');
-        return false;
-    }
-    
-    // Validar ángulo de fricción
-    if (anguloFriccion < 0 || anguloFriccion > 90) {
-        showToast('⚠️ Ángulo de fricción inválido (0-90°)', 'error');
-        return false;
-    }
-    
-    return true;
+    return { valido: true };
 }
 
-function showToast(message, type = 'info') {
-    // Crear toast element
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    toast.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--success)' : 'var(--primary)'};
-        color: white;
-        padding: 15px 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        z-index: 9999;
-        animation: slideIn 0.3s ease;
-        max-width: 300px;
-    `;
-    
-    document.body.appendChild(toast);
-    
-    // Auto remove after 3 seconds
-    setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
-// ============================================
-// ANALYSIS FUNCTIONS
-// ============================================
-
-function analyzePlanarFailure() {
-    console.log('🪨 Analizando Falla Planar...');
-    
-    const { talud, f1, anguloFriccion } = getInputValues();
-    
-    if (!validateInputs(talud, f1, anguloFriccion)) {
-        return;
-    }
-    
-    if (!window.MathEngine) {
-        showToast('❌ Motor matemático no disponible', 'error');
-        return;
-    }
-    
-    const result = window.MathEngine.analyzePlanar(talud, f1, anguloFriccion);
-    updatePlanarUI(result);
-    showToast('✅ Análisis Planar completado', 'success');
-    
-    console.log('Resultado Planar:', result);
-}
-
-function analyzeWedgeFailure() {
-    console.log('🔺 Analizando Falla en Cuña...');
-    
-    const { talud, f1, f2, anguloFriccion } = getInputValues();
-    
-    if (!validateInputs(talud, f1, anguloFriccion, f2)) {
-        return;
-    }
-    
-    if (!window.MathEngine) {
-        showToast('❌ Motor matemático no disponible', 'error');
-        return;
-    }
-    
-    const result = window.MathEngine.analyzeWedge(talud, f1, f2, anguloFriccion);
-    updateWedgeUI(result);
-    showToast('✅ Análisis en Cuña completado', 'success');
-    
-    console.log('Resultado Wedge:', result);
-}
-
-// ============================================
-// UI UPDATE FUNCTIONS
-// ============================================
-
-function updatePlanarUI(result) {
+function actualizarResultadosUI(resultado, tipo) {
     const alertCard = document.querySelector('.alert-card');
-    const statusMessage = document.querySelector('.status-message');
-    
-    if (!alertCard || !statusMessage) return;
-    
-    if (result.risk_detected) {
-        alertCard.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))';
-        alertCard.style.borderColor = 'var(--danger)';
-        statusMessage.innerHTML = `
-            <strong style="color: var(--danger);">⚠️ RIESGO DETECTADO: Falla Planar</strong>
-            <p style="margin-top: 8px; font-size: 0.9rem;">${result.message || ''}</p>
-            ${result.details ? `<p style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted);">
-                Paralelismo: ${result.details.cond_strike ? '✓' : '✗'} | 
-                Afloramiento: ${result.details.cond_daylight ? '✓' : '✗'} | 
-                Fricción: ${result.details.cond_friction ? '✓' : '✗'}
-            </p>` : ''}
-        `;
+    if (!alertCard) {
+        console.warn('No se encontró .alert-card');
+        return;
+    }
+
+    const alertIcon = alertCard.querySelector('.alert-icon-wrapper');
+    const h4 = alertCard.querySelector('.alert-text h4');
+    const p = alertCard.querySelector('.alert-text p');
+
+    if (resultado.risk_detected) {
+        alertCard.className = 'alert-card warning';
+        if (alertIcon) alertIcon.textContent = '⚠️';
+        if (h4) h4.textContent = `Riesgo Detectado: ${tipo}`;
+        if (p) p.textContent = resultado.message || 'Se detectaron condiciones de falla';
     } else {
-        alertCard.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1))';
-        alertCard.style.borderColor = 'var(--success)';
-        statusMessage.innerHTML = `
-            <strong style="color: var(--success);">✅ ESTABLE: Falla Planar</strong>
-            <p style="margin-top: 8px; font-size: 0.9rem;">No se detectaron condiciones de riesgo</p>
-        `;
+        alertCard.className = 'alert-card success';
+        if (alertIcon) alertIcon.textContent = '✅';
+        if (h4) h4.textContent = `Estable: ${tipo}`;
+        if (p) p.textContent = 'No se detectaron condiciones de riesgo';
+    }
+
+    console.log(`✅ UI actualizada: ${tipo} - Riesgo: ${resultado.risk_detected}`);
+}
+
+function ejecutarAnalisisCompleto() {
+    console.log('🔄 Ejecutando análisis...');
+
+    if (!window.MathEngine) {
+        console.error('❌ MathEngine no disponible');
+        return;
+    }
+
+    const datos = obtenerDatosAnalisis();
+    const validacion = validarDatos(datos);
+
+    if (!validacion.valido) {
+        console.warn('⚠️ Datos inválidos:', validacion.error);
+        return;
+    }
+
+    console.log('📊 Datos:', datos);
+
+    if (datos.discontinuidades.length >= 1) {
+        try {
+            const result = window.MathEngine.analyzePlanar(
+                datos.talud,
+                datos.discontinuidades[0],
+                datos.friccion
+            );
+            console.log('📈 Resultado Planar:', result);
+            actualizarResultadosUI(result, 'Falla Planar');
+        } catch (error) {
+            console.error('❌ Error en análisis:', error);
+        }
     }
 }
 
-function updateWedgeUI(result) {
-    const alertCard = document.querySelector('.alert-card');
-    const statusMessage = document.querySelector('.status-message');
-    
-    if (!alertCard || !statusMessage) return;
-    
-    if (result.risk_detected) {
-        alertCard.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))';
-        alertCard.style.borderColor = 'var(--danger)';
-        statusMessage.innerHTML = `
-            <strong style="color: var(--danger);">⚠️ RIESGO DETECTADO: Falla en Cuña</strong>
-            <p style="margin-top: 8px; font-size: 0.9rem;">${result.message || ''}</p>
-            ${result.details ? `<p style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted);">
-                Plunge: ${result.details.plunge?.toFixed(1)}° | 
-                Trend: ${result.details.trend?.toFixed(1)}° | 
-                Afloramiento: ${result.details.cond_daylight ? '✓' : '✗'} | 
-                Fricción: ${result.details.cond_friction ? '✓' : '✗'}
-            </p>` : ''}
-        `;
-    } else {
-        alertCard.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1))';
-        alertCard.style.borderColor = 'var(--success)';
-        statusMessage.innerHTML = `
-            <strong style="color: var(--success);">✅ ESTABLE: Falla en Cuña</strong>
-            <p style="margin-top: 8px; font-size: 0.9rem;">${result.message || 'No se detectaron condiciones de riesgo'}</p>
-        `;
+// Inicializar cuando el DOM esté listo
+setTimeout(() => {
+    const btnGuardar = document.querySelector('.btn-modern.primary');
+    if (btnGuardar) {
+        btnGuardar.addEventListener('click', ejecutarAnalisisCompleto);
+        console.log('✅ Análisis conectado al botón Guardar');
     }
-}
+}, 800);
 
-// ============================================
-// ATTACH EVENT LISTENERS
-// ============================================
-
-function attachAnalysisListeners() {
-    const btnPlanar = document.getElementById('btn-analyze-planar');
-    const btnWedge = document.getElementById('btn-analyze-wedge');
-    
-    if (btnPlanar) {
-        btnPlanar.addEventListener('click', (e) => {
-            e.preventDefault();
-            analyzePlanarFailure();
-        });
-        console.log('✅ Listener Planar attached');
-    }
-    
-    if (btnWedge) {
-        btnWedge.addEventListener('click', (e) => {
-            e.preventDefault();
-            analyzeWedgeFailure();
-        });
-        console.log('✅ Listener Wedge attached');
-    }
-}
-
-// ============================================
-// INITIALIZE
-// ============================================
-
-// Wait for DOM to be ready, then create buttons and attach listeners
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            createAnalysisButtons();
-            attachAnalysisListeners();
-        }, 600); // Wait for other initializations
-    });
-} else {
-    setTimeout(() => {
-        createAnalysisButtons();
-        attachAnalysisListeners();
-    }, 600);
-}
+console.log('✅ Módulo de análisis cargado');
