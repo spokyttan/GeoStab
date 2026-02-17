@@ -1,5 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
@@ -32,7 +31,6 @@ async def validate_api_key(request: Request, call_next):
 from . import models # Importación relativa desde el mismo paquete
 from engine import math_engine
 from db_utils import queries
-from typing import List
 
 @app.get("/")
 def read_root():
