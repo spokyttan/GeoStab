@@ -8,7 +8,7 @@ services:
     region: oregon
     buildCommand: pip install -r requirements.txt
     # Ejecutamos con Gunicorn + Uvicorn Workers. 
-    # Ajustamos path para que encuentre el módulo 'geostab_api' dentro de 'src'
+    # Ajustamos path para que encuentre el módulo 'geostab_api' within 'src'
     startCommand: gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.geostab_api.main:app
     envVars:
       - key: PYTHON_VERSION
@@ -25,6 +25,8 @@ services:
         sync: false
       - key: GEOSTAB_API_KEY
         sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://geostab.ddns.net
 
   # --------------------------------------------------------------------------------
   # 2. UI: Static Site
