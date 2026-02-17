@@ -1,0 +1,46 @@
+services:
+  # --------------------------------------------------------------------------------
+  # 1. API: Python Web Service
+  # --------------------------------------------------------------------------------
+  - type: web
+    name: geostab-api
+    runtime: python
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    # Ejecutamos con Gunicorn + Uvicorn Workers. 
+    # Ajustamos path para que encuentre el módulo 'geostab_api' dentro de 'src'
+    startCommand: gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.geostab_api.main:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PYTHONPATH
+        value: src
+      - key: INACAP_DB_HOST
+        sync: false
+      - key: MYSQL_USER
+        sync: false
+      - key: MYSQL_PASSWORD_SECRET
+        sync: false
+      - key: MYSQL_DATABASE
+        sync: false
+      - key: GEOSTAB_API_KEY
+        sync: false
+
+  # --------------------------------------------------------------------------------
+  # 2. UI: Static Site
+  # --------------------------------------------------------------------------------
+  - type: static
+    name: geostab-ui
+    repo: https://github.com/spokyttan/GeoStab
+    region: oregon
+    publishDir: public
+    routes:
+      # Regla de Rewrite para redirigir llamadas /api/ al servicio geostab-api
+      # IMPORTANTE: Reemplazar 'https://geostab-api-xxxx.onrender.com' con la URL real de tu API tras el primer despliegue.
+      - type: rewrite
+        source: /api/*
+        destination: https://geostab-api-placeholder.onrender.com/*
+      # SPA Fallback (si fuera necesario, aunque esta app es single-page sin router)
+      - type: rewrite
+        source: /*
+        destination: /index.html
