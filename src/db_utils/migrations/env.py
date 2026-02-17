@@ -4,6 +4,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+import os
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -25,6 +26,27 @@ target_metadata = None
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+def get_database_url():
+    """Obtiene la URL de la base de datos para migraciones."""
+    from dotenv import load_dotenv
+    from pathlib import Path
+
+    # Find .env file in project root
+    # env.py is in src/db_utils/migrations/
+    project_root = Path(__file__).parent.parent.parent.parent
+    dotenv_path = project_root / '.env'
+    load_dotenv(dotenv_path=dotenv_path)
+
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        # Fallback to Postgres local defaults
+        user = os.environ.get('POSTGRES_USER', 'postgres')
+        password = os.environ.get('POSTGRES_PASSWORD', 'postgres')
+        host = os.environ.get('POSTGRES_HOST', 'localhost')
+        db = os.environ.get('POSTGRES_DB', 'geostab')
+        port = os.environ.get('POSTGRES_PORT', '5432')
+        url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
+    return url
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -38,20 +60,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    # Load database URL from environment variables
-    import os
-    from dotenv import load_dotenv
-    load_dotenv()
-    
-    url = config.get_main_option("sqlalchemy.url")
-    if not url:
-        # Build URL from environment variables
-        user = os.getenv("MYSQL_USER", "capitan")
-        password = os.getenv("MYSQL_PASSWORD") or os.getenv("MYSQL_PASSWORD_SECRET")
-        host = os.getenv("MYSQL_HOST") or os.getenv("INACAP_DB_HOST")
-        database = os.getenv("MYSQL_DATABASE", "GeoStab")
-        port = 13043
-        url = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
+    url = get_database_url()
     
     context.configure(
         url=url,
@@ -71,29 +80,10 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # Load database URL from environment variables
-    import os
-    from dotenv import load_dotenv
-    from pathlib import Path
-
-    # Find .env file in project root
-    # env.py is in src/db_utils/migrations/
-    project_root = Path(__file__).parent.parent.parent.parent
-    dotenv_path = project_root / '.env'
-    load_dotenv(dotenv_path=dotenv_path)
-    
     configuration = config.get_section(config.config_ini_section, {})
     
-    # Override sqlalchemy.url if not set
-    if not configuration.get("sqlalchemy.url"):
-        import urllib.parse
-        user = os.getenv("MYSQL_USER", "capitan")
-        password = os.getenv("MYSQL_PASSWORD") or os.getenv("MYSQL_PASSWORD_SECRET")
-        encoded_password = urllib.parse.quote_plus(password) if password else ""
-        host = os.getenv("MYSQL_HOST") or os.getenv("INACAP_DB_HOST")
-        database = os.getenv("MYSQL_DATABASE", "GeoStab")
-        port = 13043
-        configuration["sqlalchemy.url"] = f"mysql+mysqlconnector://{user}:{encoded_password}@{host}:{port}/{database}"
+    # Override sqlalchemy.url with environment variable
+    configuration["sqlalchemy.url"] = get_database_url()
     
     connectable = engine_from_config(
         configuration,

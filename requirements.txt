@@ -1,5 +1,6 @@
 fastapi[standard]
-mysql-connector-python
+psycopg2-binary
+sqlalchemy
 numpy
 requests
 pytest
