@@ -6,13 +6,11 @@ services:
       context: .
       dockerfile: Dockerfile.api
     restart: always
-    command: "gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.geostab_api.main:app --bind 0.0.0.0:8000"
     environment:
       MYSQL_HOST: ${INACAP_DB_HOST}
       MYSQL_USER: capitan
       MYSQL_PASSWORD: ${MYSQL_PASSWORD_SECRET}
       MYSQL_DATABASE: GeoStab
-      PYTHONPATH: /app/src
       GEOSTAB_API_KEY: ${GEOSTAB_API_KEY}
     expose:
       - "8000"
@@ -26,6 +24,14 @@ services:
       - api
     expose:
       - "8501"
+
+  vitality-guard:
+    build:
+      context: .
+      dockerfile: Dockerfile.vitality
+    restart: always
+    environment:
+      PYTHONUNBUFFERED: 1
 
   nginx:
     image: nginx:stable-alpine

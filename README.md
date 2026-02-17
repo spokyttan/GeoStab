@@ -31,6 +31,19 @@ Sistema de monitoreo y análisis de estabilidad de taludes con capacidades offli
 - **Contenedores**: Docker + Docker Compose
 - **Dominio**: geostab.ddns.net
 - **Servidor**: Ubuntu 20.04 LTS (Oracle Cloud Infrastructure - Free Tier)
+- **Vitality Guard**: Servicio de mantenimiento de actividad de CPU
+
+## 🛡️ Oracle Cloud Vitality Guard
+
+Oracle Cloud Free Tier puede reclamar instancias (detenerlas) si su uso de CPU es inferior al umbral mínimo durante períodos prolongados.
+
+Para mitigar esto, hemos incluido el servicio `vitality-guard`:
+
+- **Funcionamiento**: Ejecuta un script ligero (`scripts/keep_alive.py`) que realiza cálculos matemáticos intensivos durante 10 segundos.
+- **Frecuencia**: Por defecto, cada 12 horas.
+- **Configuración**: Intervalo ajustable mediante la variable de entorno `VITALITY_INTERVAL` en `docker-compose.yml`.
+
+Este servicio asegura que la instancia reporte actividad de CPU periódica sin afectar el rendimiento general de la aplicación.
 
 ## 📁 Estructura del Proyecto
 
@@ -93,7 +106,7 @@ GeoStab/
 
 3. **Iniciar servicios**
    ```bash
-   docker-compose up -d
+   docker-compose up -d --build
    ```
 
 4. **Acceder a la aplicación**

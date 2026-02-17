@@ -1,0 +1,13 @@
+# Dockerfile for the Vitality Guard service
+# Keeps the Oracle Cloud instance alive by generating periodic CPU load.
+
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy the keep_alive script
+COPY scripts/keep_alive.py .
+
+# Run the script
+CMD ["python", "keep_alive.py"]
