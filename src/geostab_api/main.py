@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
