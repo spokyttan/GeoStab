@@ -1,7 +1,5 @@
-# /home/nattancm/Proyectos secretos/GeoStab/Dockerfile.api
-
 # 1. Usa una imagen oficial de Python como base. 'slim' es una versión ligera.
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 # 2. Establece el directorio de trabajo dentro del contenedor.
 WORKDIR /app
@@ -24,5 +22,8 @@ COPY ./src /app/src
 # 6. Copia alembic.ini para migraciones
 COPY alembic.ini .
 
-# El comando para ejecutar la API ya está definido en tu docker-compose.yml,
-# por lo que no es necesario un CMD o ENTRYPOINT aquí.
+# 7. Configurar PYTHONPATH para que Gunicorn encuentre los módulos
+ENV PYTHONPATH=/app/src
+
+# 8. Comando por defecto para ejecutar la API
+CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "geostab_api.main:app", "--bind", "0.0.0.0:8000"]

@@ -26,6 +26,9 @@ sudo docker-compose down || true
 echo "🔨 Construyendo UI..."
 sudo docker-compose build ui
 
+echo "🔨 Construyendo Vitality Guard..."
+sudo docker-compose build vitality-guard
+
 echo "🔨 Construyendo API (puede tardar)..."
 sudo docker-compose build api
 
