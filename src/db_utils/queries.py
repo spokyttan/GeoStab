@@ -8,8 +8,14 @@ a la base de datos PostgreSQL (migrado desde MySQL).
 """
 
 from datetime import datetime
+import logging
 from typing import Optional, Dict, Any
+from psycopg2.extras import RealDictCursor
 from .connection import get_db_connection
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def save_planar_measurement(
@@ -59,7 +65,7 @@ def save_planar_measurement(
             measurement_id = cursor.fetchone()[0]
             conn.commit()
             
-            print(f"✅ Medición planar guardada con ID: {measurement_id}")
+            logger.info(f"✅ Medición planar guardada con ID: {measurement_id}")
             
             return {
                 "success": True,
@@ -68,7 +74,7 @@ def save_planar_measurement(
             }
             
     except Exception as e:
-        print(f"❌ Error al guardar medición planar: {e}")
+        logger.error(f"❌ Error al guardar medición planar: {e}", exc_info=True)
         raise
 
 
@@ -123,7 +129,7 @@ def save_wedge_measurement(
             measurement_id = cursor.fetchone()[0]
             conn.commit()
             
-            print(f"✅ Medición en cuña guardada con ID: {measurement_id}")
+            logger.info(f"✅ Medición en cuña guardada con ID: {measurement_id}")
             
             return {
                 "success": True,
@@ -132,7 +138,7 @@ def save_wedge_measurement(
             }
             
     except Exception as e:
-        print(f"❌ Error al guardar medición en cuña: {e}")
+        logger.error(f"❌ Error al guardar medición en cuña: {e}", exc_info=True)
         raise
 
 
@@ -142,16 +148,6 @@ def get_site_measurements(site_id: int, limit: int = 50) -> list:
     """
     try:
         with get_db_connection() as conn:
-            # psycopg2 cursor_factory=RealDictCursor se usa si se quiere dicts,
-            # pero engine.raw_connection() devuelve conex psycopg2 standard.
-            # Para obtener dicts, necesitamos cursor_factory.
-            # El código original usaba mysql.connector.cursor(dictionary=True)
-            # Aquí, conn.cursor() de psycopg2 no acepta dictionary=True directamente.
-            # Debemos usar RealDictCursor si queremos diccionarios.
-
-            # Sin embargo, connection.py devuelve conn raw.
-            # Podemos importar RealDictCursor.
-            from psycopg2.extras import RealDictCursor
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
             query = """
@@ -176,12 +172,12 @@ def get_site_measurements(site_id: int, limit: int = 50) -> list:
             cursor.execute(query, (site_id, limit))
             measurements = cursor.fetchall()
             
-            print(f"📊 {len(measurements)} mediciones obtenidas para sitio {site_id}")
+            logger.info(f"📊 {len(measurements)} mediciones obtenidas para sitio {site_id}")
             
             return measurements
             
     except Exception as e:
-        print(f"❌ Error al obtener mediciones: {e}")
+        logger.error(f"❌ Error al obtener mediciones: {e}", exc_info=True)
         raise
 
 
@@ -191,7 +187,6 @@ def get_risk_summary(site_id: Optional[int] = None) -> Dict[str, Any]:
     """
     try:
         with get_db_connection() as conn:
-            from psycopg2.extras import RealDictCursor
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
             if site_id:
@@ -204,9 +199,6 @@ def get_risk_summary(site_id: Optional[int] = None) -> Dict[str, Any]:
                     FROM MEASUREMENTS
                     WHERE SITE_ID = %s
                 """
-                # Nota: En Postgres boolean es TRUE/FALSE. MySQL usaba 1/0 pero también acepta TRUE/FALSE.
-                # Ajusté a TRUE para ser explícito, aunque Postgres casteará 1 a true si es int? No siempre.
-                # Mejor usar TRUE.
                 cursor.execute(query, (site_id,))
             else:
                 query = """
@@ -222,12 +214,12 @@ def get_risk_summary(site_id: Optional[int] = None) -> Dict[str, Any]:
             
             summary = cursor.fetchone()
             
-            print(f"📈 Resumen de riesgos generado")
+            logger.info(f"📈 Resumen de riesgos generado")
             
             return summary
             
     except Exception as e:
-        print(f"❌ Error al obtener resumen: {e}")
+        logger.error(f"❌ Error al obtener resumen: {e}", exc_info=True)
         raise
 
 
@@ -244,7 +236,7 @@ def delete_measurement(measurement_id: int) -> Dict[str, Any]:
             conn.commit()
             
             if cursor.rowcount > 0:
-                print(f"🗑️ Medición {measurement_id} eliminada")
+                logger.info(f"🗑️ Medición {measurement_id} eliminada")
                 return {
                     "success": True,
                     "message": f"Medición {measurement_id} eliminada exitosamente"
@@ -256,7 +248,7 @@ def delete_measurement(measurement_id: int) -> Dict[str, Any]:
                 }
                 
     except Exception as e:
-        print(f"❌ Error al eliminar medición: {e}")
+        logger.error(f"❌ Error al eliminar medición: {e}", exc_info=True)
         raise
 
 
@@ -277,10 +269,10 @@ def create_project(name: str, description: Optional[str] = None, session_id: Opt
             cursor.execute(query, (name, description, now, now, session_id))
             project_id = cursor.fetchone()[0]
             conn.commit()
-            print(f"✅ Proyecto creado con ID: {project_id} (Sesión: {session_id})")
+            logger.info(f"✅ Proyecto creado con ID: {project_id} (Sesión: {session_id})")
             return {"success": True, "project_id": project_id, "message": f"Proyecto '{name}' creado"}
     except Exception as e:
-        print(f"❌ Error al crear proyecto: {e}")
+        logger.error(f"❌ Error al crear proyecto: {e}", exc_info=True)
         raise
 
 def get_projects(limit: int = 50, session_id: Optional[str] = None) -> list:
@@ -289,7 +281,6 @@ def get_projects(limit: int = 50, session_id: Optional[str] = None) -> list:
     """
     try:
         with get_db_connection() as conn:
-            from psycopg2.extras import RealDictCursor
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             if session_id:
                 query = "SELECT * FROM PROJECTS WHERE SESSION_ID = %s ORDER BY UPDATED_AT DESC LIMIT %s"
@@ -299,7 +290,7 @@ def get_projects(limit: int = 50, session_id: Optional[str] = None) -> list:
                 cursor.execute(query, (limit,))
             return cursor.fetchall()
     except Exception as e:
-        print(f"❌ Error al obtener proyectos: {e}")
+        logger.error(f"❌ Error al obtener proyectos: {e}", exc_info=True)
         raise
 
 def get_project_by_id(project_id: int) -> Optional[Dict[str, Any]]:
@@ -308,13 +299,12 @@ def get_project_by_id(project_id: int) -> Optional[Dict[str, Any]]:
     """
     try:
         with get_db_connection() as conn:
-            from psycopg2.extras import RealDictCursor
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             query = "SELECT * FROM PROJECTS WHERE PROJECT_ID = %s"
             cursor.execute(query, (project_id,))
             return cursor.fetchone()
     except Exception as e:
-        print(f"❌ Error al obtener proyecto {project_id}: {e}")
+        logger.error(f"❌ Error al obtener proyecto {project_id}: {e}", exc_info=True)
         raise
 
 def update_project(project_id: int, name: Optional[str] = None, description: Optional[str] = None) -> Dict[str, Any]:
@@ -349,7 +339,7 @@ def update_project(project_id: int, name: Optional[str] = None, description: Opt
                 return {"success": True, "message": f"Proyecto {project_id} actualizado"}
             return {"success": False, "message": "Proyecto no encontrado"}
     except Exception as e:
-        print(f"❌ Error al actualizar proyecto: {e}")
+        logger.error(f"❌ Error al actualizar proyecto: {e}", exc_info=True)
         raise
 
 def delete_project(project_id: int) -> Dict[str, Any]:
@@ -369,7 +359,7 @@ def delete_project(project_id: int) -> Dict[str, Any]:
                 return {"success": True, "message": f"Proyecto {project_id} eliminado"}
             return {"success": False, "message": "Proyecto no encontrado"}
     except Exception as e:
-        print(f"❌ Error al eliminar proyecto: {e}")
+        logger.error(f"❌ Error al eliminar proyecto: {e}", exc_info=True)
         raise
 
 
@@ -406,17 +396,16 @@ def create_discontinuity_photo(
             ))
             photo_id = cursor.fetchone()[0]
             conn.commit()
-            print(f"✅ Foto guardada con ID: {photo_id}")
+            logger.info(f"✅ Foto guardada con ID: {photo_id}")
             return {"success": True, "photo_id": photo_id}
     except Exception as e:
-        print(f"❌ Error al guardar foto: {e}")
+        logger.error(f"❌ Error al guardar foto: {e}", exc_info=True)
         raise
 
 def get_photos_by_project(project_id: int, include_image_data: bool = False) -> list:
     """Obtiene todas las fotos de un proyecto."""
     try:
         with get_db_connection() as conn:
-            from psycopg2.extras import RealDictCursor
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             if include_image_data:
                 query = "SELECT * FROM DISCONTINUITY_PHOTOS WHERE PROJECT_ID = %s ORDER BY CAPTURED_AT DESC"
@@ -429,20 +418,19 @@ def get_photos_by_project(project_id: int, include_image_data: bool = False) -> 
             cursor.execute(query, (project_id,))
             return cursor.fetchall()
     except Exception as e:
-        print(f"❌ Error al obtener fotos del proyecto {project_id}: {e}")
+        logger.error(f"❌ Error al obtener fotos del proyecto {project_id}: {e}", exc_info=True)
         raise
 
 def get_photo_by_id(photo_id: int) -> Optional[Dict[str, Any]]:
     """Obtiene una foto específica por ID (incluye IMAGE_DATA)."""
     try:
         with get_db_connection() as conn:
-            from psycopg2.extras import RealDictCursor
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             query = "SELECT * FROM DISCONTINUITY_PHOTOS WHERE PHOTO_ID = %s"
             cursor.execute(query, (photo_id,))
             return cursor.fetchone()
     except Exception as e:
-        print(f"❌ Error al obtener foto {photo_id}: {e}")
+        logger.error(f"❌ Error al obtener foto {photo_id}: {e}", exc_info=True)
         raise
 
 def delete_photo(photo_id: int) -> bool:
@@ -455,7 +443,7 @@ def delete_photo(photo_id: int) -> bool:
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
-        print(f"❌ Error al eliminar foto {photo_id}: {e}")
+        logger.error(f"❌ Error al eliminar foto {photo_id}: {e}", exc_info=True)
         raise
 
 if __name__ == '__main__':
@@ -481,8 +469,4 @@ if __name__ == '__main__':
     print("🧪 PRUEBAS DE QUERIES (PostgreSQL)")
     print("=" * 60)
 
-    # ... Resto del código de prueba ...
-    # Omito el resto para no hacerlo enorme, pero si el usuario quisiera correrlo,
-    # debería funcionar si tiene un Postgres local configurado.
-    # Por ahora solo aseguramos que el archivo sea válido sintácticamente.
-    pass
+    # We can use logger here too, but for CLI test script prints are fine.
