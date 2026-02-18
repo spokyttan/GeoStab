@@ -3,11 +3,16 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
+import logging
 
 # Cargar variables de entorno
 load_dotenv()
 
 API_KEY = os.getenv("GEOSTAB_API_KEY")
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="GeoStab API",
@@ -15,9 +20,10 @@ app = FastAPI(
 )
 
 # Configuración de CORS
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permitir todos los orígenes (incluyendo file://)
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,8 +31,16 @@ app.add_middleware(
 
 @app.middleware("http")
 async def validate_api_key(request: Request, call_next):
-    # Middleware deshabilitado para facilitar demo
-    # TODO: Rehabilitar con API Key adecuada para producción final
+    # Skip validation for root, docs, and openapi
+    if request.url.path == "/" or request.url.path.startswith("/docs") or request.url.path.startswith("/openapi.json"):
+        return await call_next(request)
+
+    # Check API Key
+    api_key_header = request.headers.get("X-API-Key")
+    if API_KEY and api_key_header != API_KEY:
+        logger.warning(f"Unauthorized access attempt from {request.client.host}")
+        return JSONResponse(status_code=403, content={"detail": "Invalid or missing API Key"})
+
     return await call_next(request)
 
 from . import models # Importación relativa desde el mismo paquete
@@ -60,6 +74,7 @@ def analyze_planar(request: models.PlanarAnalysisRequest):
         message = "Análisis planar completado."
 
     except Exception as e:
+        logger.error(f"Error en el motor matemático: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error en el motor matemático: {e}")
 
     # 2. Guardar en la BD de Carlos (Sprint 2) 
@@ -75,6 +90,7 @@ def analyze_planar(request: models.PlanarAnalysisRequest):
         db_status = "Medición guardada exitosamente."
     except Exception as e:
         # No fallar la solicitud si la BD falla, pero informar
+        logger.error(f"Error al guardar en BD: {e}", exc_info=True)
         db_status = f"Error al guardar en BD: {e}"
 
     # 3. Devolver la respuesta a Valeria (Sprint 3) 
@@ -96,6 +112,7 @@ def create_new_project(request: Request, project: models.ProjectCreate):
         result = queries.create_project(project.name, project.description, session_id=session_id)
         return result
     except Exception as e:
+        logger.error(f"Error creating project: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/projects")
@@ -105,6 +122,7 @@ def list_projects(request: Request, limit: int = 50):
         session_id = request.headers.get("X-Session-ID")
         return queries.get_projects(limit, session_id=session_id)
     except Exception as e:
+        logger.error(f"Error listing projects: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/projects/{project_id}", response_model=models.ProjectResponse)
@@ -118,6 +136,7 @@ def get_project(project_id: int):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error getting project {project_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/projects/{project_id}")
@@ -131,6 +150,7 @@ def update_project(project_id: int, project: models.ProjectUpdate):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error updating project {project_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/projects/{project_id}")
@@ -144,6 +164,7 @@ def delete_project(project_id: int):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error deleting project {project_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze/wedge", response_model=models.AnalysisResult)
@@ -176,6 +197,7 @@ def analyze_wedge(request: models.WedgeAnalysisRequest):
         message = "Análisis en cuña completado."
 
     except Exception as e:
+        logger.error(f"Error en el motor matemático (Wedge): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error en el motor matemático: {e}")
 
     # 2. Guardar en la BD de Carlos
@@ -189,6 +211,7 @@ def analyze_wedge(request: models.WedgeAnalysisRequest):
         )
         db_status = "Medición guardada exitosamente."
     except Exception as e:
+        logger.error(f"Error al guardar Wedge en BD: {e}", exc_info=True)
         db_status = f"Error al guardar en BD: {e}"
 
     # 3. Devolver la respuesta a Valeria
@@ -220,6 +243,7 @@ def create_photo(request: Request, photo: models.PhotoCreate):
         )
         return result
     except Exception as e:
+        logger.error(f"Error creating photo: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/photos/project/{project_id}")
@@ -229,6 +253,7 @@ def get_project_photos(project_id: int, include_images: bool = False):
         photos = queries.get_photos_by_project(project_id, include_image_data=include_images)
         return {"photos": photos}
     except Exception as e:
+        logger.error(f"Error getting photos for project {project_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/photos/{photo_id}")
@@ -242,6 +267,7 @@ def get_single_photo(photo_id: int):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error getting photo {photo_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/photos/{photo_id}")
@@ -255,4 +281,5 @@ def remove_photo(photo_id: int):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error deleting photo {photo_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
