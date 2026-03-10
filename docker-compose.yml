@@ -12,6 +12,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD_SECRET}
       MYSQL_DATABASE: GeoStab
       GEOSTAB_API_KEY: ${GEOSTAB_API_KEY}
+      ALLOWED_ORIGINS: http://localhost:8501,https://geostab.ddns.net,http://localhost:8000
     expose:
       - "8000"
 
