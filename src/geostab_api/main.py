@@ -1,5 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
@@ -98,7 +97,7 @@ def create_new_project(request: Request, project: models.ProjectCreate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/projects")
+@app.get("/projects", response_model=List[models.ProjectResponse])
 def list_projects(request: Request, limit: int = 50):
     """Lista los últimos proyectos filtrados por sesión."""
     try:
